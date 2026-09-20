@@ -188,3 +188,21 @@ def test_only_the_publish_jobs_may_write_the_oidc_token():
     top_level = text.split("\njobs:", 1)[0]
     assert "id-token" not in top_level
     assert "id-token" not in CI.read_text(encoding="utf-8")
+
+
+def test_runners_are_pinned_not_latest():
+    # `ubuntu-latest` moves to a new OS on GitHub's schedule; move on ours.
+    found = 0
+    for name, text in workflow_texts().items():
+        for value in re.findall(r"runs-on:\s*(\S+)", text):
+            found += 1
+            assert not value.endswith("-latest"), (name, value)
+    assert found
+
+
+def test_the_sdist_leaves_out_repository_plumbing():
+    hatch = tomllib.loads((ROOT / "pyproject.toml").read_text(encoding="utf-8"))["tool"]["hatch"]
+    exclude = hatch["build"]["targets"]["sdist"]["exclude"]
+    assert {"/.github", "/uv.lock"} <= set(exclude)
+    assert "twine check --strict" in CI.read_text(encoding="utf-8")
+    assert "The sdist contains files that should not ship" in CI.read_text(encoding="utf-8")

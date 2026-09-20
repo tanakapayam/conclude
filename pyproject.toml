@@ -20,7 +20,7 @@ classifiers = [
     "Development Status :: 5 - Production/Stable",
     "Environment :: Console",
     "Intended Audience :: Developers",
-    "Operating System :: OS Independent",
+    "Operating System :: Unix",
     "Programming Language :: Python :: 3",
     "Programming Language :: Python :: 3 :: Only",
     "Programming Language :: Python :: 3.11",
@@ -59,6 +59,10 @@ path = "src/conclude/__init__.py"
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/conclude"]
+
+[tool.hatch.build.targets.sdist]
+# Repository plumbing, not part of the source someone builds or tests.
+exclude = ["/.github", "/uv.lock"]
 
 [dependency-groups]
 dev = ["ruff>=0.6.0", "pytest>=8.0", "pathspec>=0.12", "mypy>=1.10", "twine>=5.0"]

@@ -102,6 +102,10 @@ def load_dotenv(path: Path) -> dict[str, str]:
     characters pass through unchanged), matching common ``.env``
     convention.
 
+    The file is read as UTF-8 on every platform, whatever the default
+    text encoding; a leading byte-order mark, which some Windows
+    editors add, is ignored.
+
     Deliberately not supported: multi-line values, inline comments
     after a value on the same line, and ``${OTHER_VAR}``-style
     interpolation -- keeping the parser small and its behavior easy to
@@ -113,7 +117,7 @@ def load_dotenv(path: Path) -> dict[str, str]:
     if not path.is_file():
         return {}
     result: dict[str, str] = {}
-    for raw_line in path.read_text().splitlines():
+    for raw_line in path.read_text(encoding="utf-8-sig").splitlines():
         line = raw_line.strip()
         if not line or line.startswith("#"):
             continue

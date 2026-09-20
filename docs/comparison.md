@@ -3,7 +3,7 @@
 A feature-by-feature comparison with five libraries people often reach
 for instead. **Verified 2026-09-19** against each project's
 documentation and its PyPI metadata; the versions checked are
-conclude 1.0.0, ConfigArgParse 1.7.7, jsonargparse 4.52.0,
+conclude 1.0.1, ConfigArgParse 1.7.7, jsonargparse 4.52.0,
 pydantic-settings 2.15.0, Dynaconf 3.3.5 and python-decouple 3.8.
 
 A dash (--) means no built-in support that the project's documentation

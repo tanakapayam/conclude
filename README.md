@@ -215,7 +215,7 @@ pip install 'conclude[gitignore]'
 ## Development
 
 ```
-uv sync
+uv sync --locked  # fails if uv.lock is out of date; `uv lock` refreshes it
 uv run pytest
 uv run ruff check . && uv run ruff format --check .
 uv run mypy

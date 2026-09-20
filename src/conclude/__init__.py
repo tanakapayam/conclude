@@ -137,7 +137,7 @@ from conclude.naming import cli_flag_name, config_key_name, env_var_name
 from conclude.paths import default_config_home_path, default_config_system_path
 from conclude.tomlwrite import toml_key, toml_string
 
-__version__ = "1.0.0"
+__version__ = "1.0.1"
 
 __all__ = [
     "App",

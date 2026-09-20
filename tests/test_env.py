@@ -1,3 +1,11 @@
+import json
+import os
+import subprocess
+import sys
+from pathlib import Path
+
+import pytest
+
 from conclude.env import load_dotenv, load_env
 
 ENV_VARS = {"name": "MYAPP_NAME", "count": "MYAPP_COUNT"}
@@ -98,3 +106,54 @@ def test_load_env_no_dotenv_path_ignores_dotenv_files(tmp_path, monkeypatch):
     monkeypatch.chdir(tmp_path)
     (tmp_path / ".env").write_text("MYAPP_NAME=from-dotenv\n")
     assert load_env(ENV_VARS, {}) == {}
+
+
+# --- encoding: .env files are UTF-8 everywhere ----------------------------------------
+
+
+def test_load_dotenv_ignores_a_leading_byte_order_mark(tmp_path):
+    # What Windows Notepad writes: without this the first name would be
+    # "\ufeffMYAPP_FIRST" and that variable would silently go missing.
+    path = tmp_path / ".env"
+    path.write_bytes(b"\xef\xbb\xbfMYAPP_FIRST=one\nMYAPP_SECOND=two\n")
+    assert load_dotenv(path) == {"MYAPP_FIRST": "one", "MYAPP_SECOND": "two"}
+
+
+def test_load_dotenv_reads_utf8_whatever_the_platform_default_encoding(tmp_path):
+    # Run in a child interpreter whose default text encoding is ASCII (the C
+    # locale, UTF-8 mode off) -- the same situation as cp1252 on Windows.
+    path = tmp_path / ".env"
+    path.write_bytes("MYAPP_NAME=café\nMYAPP_EMOJI='🎉'\n".encode())
+    code = (
+        "import json, locale, pathlib, sys\n"
+        "from conclude import load_dotenv\n"
+        "print(json.dumps([locale.getencoding(), load_dotenv(pathlib.Path(sys.argv[1]))]))\n"
+    )
+    env = {**os.environ, "LC_ALL": "C", "PYTHONCOERCECLOCALE": "0"}
+    env.pop("PYTHONUTF8", None)
+    result = subprocess.run(
+        [sys.executable, "-X", "utf8=0", "-c", code, str(path)],
+        capture_output=True,
+        text=True,
+        env=env,
+        check=True,
+    )
+    encoding, values = json.loads(result.stdout)
+    if encoding.lower().replace("-", "").replace("_", "") in {"utf8", "cp65001"}:
+        pytest.skip("could not make the child's default text encoding non-UTF-8 here")
+    assert values == {"MYAPP_NAME": "café", "MYAPP_EMOJI": "🎉"}
+
+
+def test_load_dotenv_always_passes_an_explicit_encoding(tmp_path, monkeypatch):
+    path = tmp_path / ".env"
+    path.write_bytes(b"MYAPP_A=1\n")
+    seen = []
+    original = Path.read_text
+
+    def spy(self, encoding=None, errors=None, **kwargs):
+        seen.append(encoding)
+        return original(self, encoding=encoding, errors=errors, **kwargs)
+
+    monkeypatch.setattr(Path, "read_text", spy)
+    load_dotenv(path)
+    assert seen and all(encoding and encoding.lower().startswith("utf-8") for encoding in seen)
