@@ -62,13 +62,18 @@ packages = ["src/conclude"]
 
 [tool.hatch.build.targets.sdist]
 # Repository plumbing, not part of the source someone builds or tests.
-exclude = ["/.github", "/uv.lock"]
+exclude = ["/.github", "/uv.lock", "/node"]
 
 [dependency-groups]
 dev = ["ruff>=0.6.0", "pytest>=8.0", "pathspec>=0.12", "mypy>=1.10", "twine>=5.0"]
 
+[tool.pytest.ini_options]
+# Only the Python tests: node/ has its own (and node_modules can hold stray test_*.py files).
+testpaths = ["tests"]
+
 [tool.ruff]
 target-version = "py311"
+extend-exclude = ["node"]
 line-length = 100
 src = ["src"]
 

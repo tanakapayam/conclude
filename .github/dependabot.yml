@@ -1,4 +1,5 @@
-# Keeps the SHA-pinned actions in .github/workflows/ current.
+# Keeps the SHA-pinned actions in .github/workflows/ and the Node package's
+# dependencies current.
 version: 2
 updates:
   - package-ecosystem: github-actions
@@ -7,4 +8,11 @@ updates:
       interval: weekly
     groups:
       actions:
+        patterns: ["*"]
+  - package-ecosystem: npm
+    directory: /node
+    schedule:
+      interval: weekly
+    groups:
+      npm:
         patterns: ["*"]

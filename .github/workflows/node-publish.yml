@@ -1,0 +1,100 @@
+name: Node Publish
+
+# Publishes @tanakapayam/conclude to npm. The package is `"private": true`
+# until it is ready; remove that (and bump the version and node/CHANGELOG.md)
+# first. One-time setup, before the first real publish:
+#   1. Create the `npm` environment in this repository's Settings ->
+#      Environments (add required reviewers to make a release wait for
+#      approval).
+#   2. On npmjs.com, add this repository and workflow (`node-publish.yml`,
+#      environment `npm`) as a trusted publisher for the package. A package
+#      that does not exist yet may need one manual first publish before npm
+#      lets you configure that -- check npm's current documentation.
+#
+# Then:
+#   - A dry run: Actions -> Node Publish -> Run workflow (dry run is the default).
+#   - A release: publish a GitHub Release whose tag is `node-v<version>`.
+
+on:
+  release:
+    types: [published]
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: Only pack the package and report what would be published
+        type: boolean
+        default: true
+
+permissions:
+  contents: read
+
+defaults:
+  run:
+    working-directory: node
+
+jobs:
+  ci:
+    name: CI
+    # A release of the Python package (tags v*, python-v*) is not ours.
+    if: github.event_name == 'workflow_dispatch' || startsWith(github.event.release.tag_name, 'node-v')
+    uses: ./.github/workflows/node-ci.yml
+
+  publish:
+    name: Publish to npm
+    needs: ci
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    environment:
+      name: npm
+      url: https://www.npmjs.com/package/@tanakapayam/conclude
+    permissions:
+      contents: read
+      id-token: write # trusted publishing and provenance (OIDC); no npm token is stored
+    env:
+      DRY_RUN: ${{ github.event_name == 'workflow_dispatch' && inputs.dry_run || 'false' }}
+    steps:
+      - name: Check out
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Set up Node 24
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: "24"
+          registry-url: https://registry.npmjs.org
+      - name: Read the version
+        id: package
+        run: echo "version=$(node -p "require('./package.json').version")" >> "$GITHUB_OUTPUT"
+      - name: Check the release is ready (real publishes only)
+        if: env.DRY_RUN != 'true'
+        env:
+          TAG: ${{ github.event.release.tag_name }}
+          VERSION: ${{ steps.package.outputs.version }}
+        run: |
+          if [ "$(node -p "require('./package.json').private === true")" = "true" ]; then
+            echo "::error::package.json still says \"private\": true."
+            exit 1
+          fi
+          if [ -n "$TAG" ] && [ "$TAG" != "node-v$VERSION" ]; then
+            echo "::error::The release tag $TAG does not match the package version node-v$VERSION."
+            exit 1
+          fi
+          if ! grep -q "^## \[$VERSION\]" CHANGELOG.md; then
+            echo "::error::node/CHANGELOG.md has no entry for $VERSION."
+            exit 1
+          fi
+          if grep -q "^## \[$VERSION\] - Unreleased" CHANGELOG.md; then
+            echo "::error::node/CHANGELOG.md still marks $VERSION as Unreleased; put the date on it."
+            exit 1
+          fi
+      - name: Install
+        run: npm ci
+      - name: Build, pack and smoke-test the tarball
+        run: npm run smoke
+      - name: Publish (or, for a dry run, just pack)
+        run: |
+          if [ "$DRY_RUN" = "true" ]; then
+            npm pack --dry-run
+          else
+            npm publish --provenance --access public
+          fi

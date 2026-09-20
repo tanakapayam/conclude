@@ -19,6 +19,11 @@ htmlcov/
 # Build artifacts
 build/
 dist/
+*.tgz
+*.tsbuildinfo
+
+# Node
+node_modules/
 
 # Virtual environments
 .venv/

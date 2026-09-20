@@ -11,7 +11,9 @@ name: Publish
 #
 # Then:
 #   - A dry run: Actions -> Publish -> Run workflow -> target `testpypi`.
-#   - A release: publish a GitHub Release whose tag is `v<version>`.
+#   - A release: publish a GitHub Release whose tag is `python-v<version>` (older
+#     releases used `v<version>`, which is still accepted). Tags starting
+#     `node-v` belong to the Node package and are ignored here.
 
 on:
   release:
@@ -30,6 +32,8 @@ permissions:
 jobs:
   ci:
     name: CI
+    # A release of the Node package (tag node-v*) is not ours.
+    if: github.event_name != 'release' || !startsWith(github.event.release.tag_name, 'node-v')
     uses: ./.github/workflows/ci.yml
 
   build:
@@ -57,8 +61,8 @@ jobs:
           TAG: ${{ github.event.release.tag_name }}
           VERSION: ${{ steps.version.outputs.version }}
         run: |
-          if [ -n "$TAG" ] && [ "$TAG" != "v$VERSION" ]; then
-            echo "::error::The release tag $TAG does not match the package version v$VERSION."
+          if [ -n "$TAG" ] && [ "$TAG" != "v$VERSION" ] && [ "$TAG" != "python-v$VERSION" ]; then
+            echo "::error::The release tag $TAG does not match the package version (python-v$VERSION)."
             exit 1
           fi
           if ! grep -q "^## \[$VERSION\]" CHANGELOG.md; then

@@ -33,17 +33,35 @@ SHIPPED = [
     ".gitignore",
     ".github/dependabot.yml",
     ".github/workflows/ci.yml",
+    ".github/workflows/node-ci.yml",
+    ".github/workflows/node-publish.yml",
     ".github/workflows/publish.yml",
     "CHANGELOG.md",
     "LICENSE",
     "README.md",
     "docs/comparison.md",
+    "docs/concept.md",
     "docs/guide.md",
+    "docs/node/guide.md",
+    "docs/node/reference.md",
     "docs/reference.md",
+    "node/CHANGELOG.md",
+    "node/LICENSE",
+    "node/README.md",
+    "node/package-lock.json",
+    "node/package.json",
+    "node/src/define.ts",
+    "node/src/index.ts",
+    "node/test/config.test.ts",
+    "node/test/docs.test.ts",
+    "node/test/spec.test.ts",
     "pyproject.toml",
+    "spec/README.md",
+    "spec/casters.json",
     "src/conclude/__init__.py",
     "src/conclude/py.typed",
     "tests/test_docs.py",
+    "tests/test_spec.py",
 ]
 # Things that must never be tracked.
 GENERATED = [
@@ -58,6 +76,11 @@ GENERATED = [
     "build/lib/conclude/app.py",
     "dist/conclude-1.0.0.tar.gz",
     "htmlcov/index.html",
+    "node/dist/index.js",
+    "node/dist/index.d.ts",
+    "node/node_modules/smol-toml/package.json",
+    "node/tsconfig.tsbuildinfo",
+    "tanakapayam-conclude-0.1.0.tgz",
     "src/conclude.egg-info/PKG-INFO",
     "src/conclude/__pycache__/app.cpython-312.pyc",
     "tests/__pycache__/x.cpython-313-pytest-8.0.pyc",
@@ -203,6 +226,69 @@ def test_runners_are_pinned_not_latest():
 def test_the_sdist_leaves_out_repository_plumbing():
     hatch = tomllib.loads((ROOT / "pyproject.toml").read_text(encoding="utf-8"))["tool"]["hatch"]
     exclude = hatch["build"]["targets"]["sdist"]["exclude"]
-    assert {"/.github", "/uv.lock"} <= set(exclude)
+    assert {"/.github", "/uv.lock", "/node"} <= set(exclude)
     assert "twine check --strict" in CI.read_text(encoding="utf-8")
     assert "The sdist contains files that should not ship" in CI.read_text(encoding="utf-8")
+
+
+# --- the Node package ------------------------------------------------------------------
+
+
+NODE = ROOT / "node"
+NODE_CI = WORKFLOWS / "node-ci.yml"
+NODE_PUBLISH = WORKFLOWS / "node-publish.yml"
+
+
+@pytest.mark.skipif(not NODE.is_dir(), reason="there is no node/ package in this checkout")
+class TestNodePackage:
+    def test_its_license_is_a_copy_of_the_root_license(self):
+        # npm packs only the package directory, so the package carries its own copy.
+        assert (NODE / "LICENSE").read_text(encoding="utf-8") == (ROOT / "LICENSE").read_text(
+            encoding="utf-8"
+        )
+
+    def test_ci_tests_the_engine_floor_and_no_older_node(self):
+        import json
+
+        engines = json.loads((NODE / "package.json").read_text(encoding="utf-8"))["engines"]["node"]
+        floor = int(re.fullmatch(r">=(\d+)(?:\.\d+)*", engines).group(1))
+        matrix = re.search(r"node:\s*\[(.*?)\]", NODE_CI.read_text(encoding="utf-8"))
+        assert matrix
+        tested = {int(v) for v in re.findall(r"\d+", matrix.group(1))}
+        assert floor in tested and min(tested) == floor
+
+    def test_ci_runs_the_typecheck_the_fixtures_and_the_tarball_smoke_test(self):
+        text = NODE_CI.read_text(encoding="utf-8")
+        for command in ["npm ci", "npm run typecheck", "npm test", "npm run smoke"]:
+            assert command in text, command
+
+    def test_ci_is_reusable_and_publish_runs_it_first(self):
+        assert re.search(r"^\s+workflow_call:", NODE_CI.read_text(encoding="utf-8"), re.M)
+        publish = NODE_PUBLISH.read_text(encoding="utf-8")
+        assert "uses: ./.github/workflows/node-ci.yml" in publish
+        assert re.search(r"needs:\s*ci\b", publish)
+
+    def test_publishing_uses_trusted_publishing_and_defaults_to_a_dry_run(self):
+        publish = NODE_PUBLISH.read_text(encoding="utf-8")
+        assert "id-token: write" in publish and "--provenance" in publish
+        assert "NPM_TOKEN" not in publish and "secrets." not in publish
+        assert re.search(r"name:\s*npm\b", publish)
+        assert re.search(r"dry_run:.*?default:\s*true", publish, re.S)
+        top_level = publish.split("\njobs:", 1)[0]
+        assert "id-token" not in top_level
+        assert "id-token" not in NODE_CI.read_text(encoding="utf-8")
+
+    def test_each_language_ignores_the_other_languages_releases(self):
+        assert "startsWith(github.event.release.tag_name, 'node-v')" in NODE_PUBLISH.read_text(
+            encoding="utf-8"
+        ) or "'node-v'" in NODE_PUBLISH.read_text(encoding="utf-8")
+        assert "'node-v'" in PUBLISH.read_text(encoding="utf-8")
+
+    def test_the_package_stays_private_until_it_is_ready_to_publish(self):
+        # A deliberate gate: flip it (and the CHANGELOG) in the release that publishes.
+        import json
+
+        package = json.loads((NODE / "package.json").read_text(encoding="utf-8"))
+        if not package.get("private"):
+            changelog = (NODE / "CHANGELOG.md").read_text(encoding="utf-8")
+            assert f"## [{package['version']}]" in changelog

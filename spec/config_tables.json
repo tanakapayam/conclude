@@ -1,0 +1,221 @@
+{
+  "spec_version": 1,
+  "description": "Choosing which TOML table to read. `op: parse` turns a `PARENT` / `PARENT.CHILD` string into a table path; `op: resolve` picks the path from an explicit selection or a positional shorthand by looking in the config files (`files` as in config_layers.json).",
+  "cases": [
+    {
+      "name": "no selection means the default table",
+      "op": "parse",
+      "value": null,
+      "default_table": "myapp",
+      "expect": [
+        "myapp"
+      ]
+    },
+    {
+      "name": "an empty selection means the default table",
+      "op": "parse",
+      "value": "",
+      "default_table": "myapp",
+      "expect": [
+        "myapp"
+      ]
+    },
+    {
+      "name": "a parent table",
+      "op": "parse",
+      "value": "deck",
+      "default_table": "myapp",
+      "expect": [
+        "deck"
+      ]
+    },
+    {
+      "name": "a parent and a child",
+      "op": "parse",
+      "value": "deck.verbs",
+      "default_table": "myapp",
+      "expect": [
+        "deck",
+        "verbs"
+      ]
+    },
+    {
+      "name": "a doubled dot is an error",
+      "op": "parse",
+      "value": "a..b",
+      "default_table": "myapp",
+      "error": true
+    },
+    {
+      "name": "a trailing dot is an error",
+      "op": "parse",
+      "value": "a.",
+      "default_table": "myapp",
+      "error": true
+    },
+    {
+      "name": "a leading dot is an error",
+      "op": "parse",
+      "value": ".a",
+      "default_table": "myapp",
+      "error": true
+    },
+    {
+      "name": "three levels are an error",
+      "op": "parse",
+      "value": "a.b.c",
+      "default_table": "myapp",
+      "error": true
+    },
+    {
+      "name": "no selection at all",
+      "op": "resolve",
+      "config_value": null,
+      "shorthand": null,
+      "default_table": "myapp",
+      "files": {},
+      "expect": [
+        "myapp"
+      ]
+    },
+    {
+      "name": "an explicit selection wins outright",
+      "op": "resolve",
+      "config_value": "other.child",
+      "shorthand": "deck",
+      "default_table": "myapp",
+      "files": {
+        "project": "[deck]\nx = 1\n"
+      },
+      "expect": [
+        "other",
+        "child"
+      ]
+    },
+    {
+      "name": "a shorthand names a top-level table",
+      "op": "resolve",
+      "config_value": null,
+      "shorthand": "deck",
+      "default_table": "myapp",
+      "files": {
+        "project": "[deck]\nx = 1\n"
+      },
+      "expect": [
+        "deck"
+      ]
+    },
+    {
+      "name": "a shorthand names a nested table",
+      "op": "resolve",
+      "config_value": null,
+      "shorthand": "deck",
+      "default_table": "myapp",
+      "files": {
+        "project": "[myapp.deck]\nx = 1\n"
+      },
+      "expect": [
+        "myapp",
+        "deck"
+      ]
+    },
+    {
+      "name": "a top-level table wins over a nested one",
+      "op": "resolve",
+      "config_value": null,
+      "shorthand": "deck",
+      "default_table": "myapp",
+      "files": {
+        "project": "[deck]\nx = 1\n[myapp.deck]\ny = 2\n"
+      },
+      "expect": [
+        "deck"
+      ]
+    },
+    {
+      "name": "an unknown shorthand falls back to the default table",
+      "op": "resolve",
+      "config_value": null,
+      "shorthand": "deck",
+      "default_table": "myapp",
+      "files": {
+        "project": "[other]\nx = 1\n"
+      },
+      "expect": [
+        "myapp"
+      ]
+    },
+    {
+      "name": "any file having the table counts (user)",
+      "op": "resolve",
+      "config_value": null,
+      "shorthand": "deck",
+      "default_table": "myapp",
+      "files": {
+        "user": "[deck]\nx = 1\n"
+      },
+      "expect": [
+        "deck"
+      ]
+    },
+    {
+      "name": "any file having the table counts (system)",
+      "op": "resolve",
+      "config_value": null,
+      "shorthand": "deck",
+      "default_table": "myapp",
+      "files": {
+        "system": "[deck]\nx = 1\n"
+      },
+      "expect": [
+        "deck"
+      ]
+    },
+    {
+      "name": "any file having the table counts (a sibling)",
+      "op": "resolve",
+      "config_value": null,
+      "shorthand": "deck",
+      "default_table": "myapp",
+      "files": {
+        "project": "[myapp]\nx = 1\n",
+        "siblings": {
+          ".config.extra.toml": "[deck]\nx = 1\n"
+        }
+      },
+      "expect": [
+        "deck"
+      ]
+    },
+    {
+      "name": "siblings are ignored when switched off",
+      "op": "resolve",
+      "config_value": null,
+      "shorthand": "deck",
+      "default_table": "myapp",
+      "files": {
+        "project": "[myapp]\nx = 1\n",
+        "siblings": {
+          ".config.extra.toml": "[deck]\nx = 1\n"
+        }
+      },
+      "expect": [
+        "myapp"
+      ],
+      "aux_pattern": null
+    },
+    {
+      "name": "a key that is not a table does not count",
+      "op": "resolve",
+      "config_value": null,
+      "shorthand": "deck",
+      "default_table": "myapp",
+      "files": {
+        "project": "deck = 3\n"
+      },
+      "expect": [
+        "myapp"
+      ]
+    }
+  ]
+}

@@ -1,0 +1,1076 @@
+{
+  "spec_version": 1,
+  "description": "Merging the layers `defaults < config < env < developer < cli`, casting each value as it lands. Layer values are raw (env values are strings, config values are whatever TOML gave). `expect` lists every setting; `error: true` means resolution fails.",
+  "cases": [
+    {
+      "name": "defaults alone",
+      "settings": [
+        {
+          "key": "host",
+          "type": "str",
+          "default": "localhost"
+        },
+        {
+          "key": "port",
+          "type": "int",
+          "default": 8080
+        },
+        {
+          "key": "debug",
+          "type": "bool",
+          "default": false
+        },
+        {
+          "key": "tags",
+          "type": "list",
+          "default": null
+        },
+        {
+          "key": "ratio",
+          "type": "float",
+          "default": 0.5
+        }
+      ],
+      "layers": {},
+      "expect": {
+        "host": "localhost",
+        "port": 8080,
+        "debug": false,
+        "tags": null,
+        "ratio": 0.5
+      }
+    },
+    {
+      "name": "a config file beats the default",
+      "settings": [
+        {
+          "key": "host",
+          "type": "str",
+          "default": "localhost"
+        },
+        {
+          "key": "port",
+          "type": "int",
+          "default": 8080
+        },
+        {
+          "key": "debug",
+          "type": "bool",
+          "default": false
+        },
+        {
+          "key": "tags",
+          "type": "list",
+          "default": null
+        },
+        {
+          "key": "ratio",
+          "type": "float",
+          "default": 0.5
+        }
+      ],
+      "layers": {
+        "config": {
+          "port": 9000
+        }
+      },
+      "expect": {
+        "host": "localhost",
+        "port": 9000,
+        "debug": false,
+        "tags": null,
+        "ratio": 0.5
+      }
+    },
+    {
+      "name": "the environment beats a config file",
+      "settings": [
+        {
+          "key": "host",
+          "type": "str",
+          "default": "localhost"
+        },
+        {
+          "key": "port",
+          "type": "int",
+          "default": 8080
+        },
+        {
+          "key": "debug",
+          "type": "bool",
+          "default": false
+        },
+        {
+          "key": "tags",
+          "type": "list",
+          "default": null
+        },
+        {
+          "key": "ratio",
+          "type": "float",
+          "default": 0.5
+        }
+      ],
+      "layers": {
+        "config": {
+          "port": 9000
+        },
+        "env": {
+          "port": "7000"
+        }
+      },
+      "expect": {
+        "host": "localhost",
+        "port": 7000,
+        "debug": false,
+        "tags": null,
+        "ratio": 0.5
+      }
+    },
+    {
+      "name": "the developer layer beats the environment",
+      "settings": [
+        {
+          "key": "host",
+          "type": "str",
+          "default": "localhost"
+        },
+        {
+          "key": "port",
+          "type": "int",
+          "default": 8080
+        },
+        {
+          "key": "debug",
+          "type": "bool",
+          "default": false
+        },
+        {
+          "key": "tags",
+          "type": "list",
+          "default": null
+        },
+        {
+          "key": "ratio",
+          "type": "float",
+          "default": 0.5
+        }
+      ],
+      "layers": {
+        "env": {
+          "port": "7000"
+        },
+        "developer": {
+          "port": "6000"
+        }
+      },
+      "expect": {
+        "host": "localhost",
+        "port": 6000,
+        "debug": false,
+        "tags": null,
+        "ratio": 0.5
+      }
+    },
+    {
+      "name": "the CLI beats the developer layer",
+      "settings": [
+        {
+          "key": "host",
+          "type": "str",
+          "default": "localhost"
+        },
+        {
+          "key": "port",
+          "type": "int",
+          "default": 8080
+        },
+        {
+          "key": "debug",
+          "type": "bool",
+          "default": false
+        },
+        {
+          "key": "tags",
+          "type": "list",
+          "default": null
+        },
+        {
+          "key": "ratio",
+          "type": "float",
+          "default": 0.5
+        }
+      ],
+      "layers": {
+        "developer": {
+          "port": "6000"
+        },
+        "cli": {
+          "port": 5000
+        }
+      },
+      "expect": {
+        "host": "localhost",
+        "port": 5000,
+        "debug": false,
+        "tags": null,
+        "ratio": 0.5
+      }
+    },
+    {
+      "name": "the whole chain, highest wins",
+      "settings": [
+        {
+          "key": "host",
+          "type": "str",
+          "default": "localhost"
+        },
+        {
+          "key": "port",
+          "type": "int",
+          "default": 8080
+        },
+        {
+          "key": "debug",
+          "type": "bool",
+          "default": false
+        },
+        {
+          "key": "tags",
+          "type": "list",
+          "default": null
+        },
+        {
+          "key": "ratio",
+          "type": "float",
+          "default": 0.5
+        }
+      ],
+      "layers": {
+        "config": {
+          "port": 2
+        },
+        "env": {
+          "port": "3"
+        },
+        "developer": {
+          "port": "4"
+        },
+        "cli": {
+          "port": 5
+        }
+      },
+      "expect": {
+        "host": "localhost",
+        "port": 5,
+        "debug": false,
+        "tags": null,
+        "ratio": 0.5
+      }
+    },
+    {
+      "name": "without the CLI, the developer layer wins",
+      "settings": [
+        {
+          "key": "host",
+          "type": "str",
+          "default": "localhost"
+        },
+        {
+          "key": "port",
+          "type": "int",
+          "default": 8080
+        },
+        {
+          "key": "debug",
+          "type": "bool",
+          "default": false
+        },
+        {
+          "key": "tags",
+          "type": "list",
+          "default": null
+        },
+        {
+          "key": "ratio",
+          "type": "float",
+          "default": 0.5
+        }
+      ],
+      "layers": {
+        "config": {
+          "port": 2
+        },
+        "env": {
+          "port": "3"
+        },
+        "developer": {
+          "port": "4"
+        }
+      },
+      "expect": {
+        "host": "localhost",
+        "port": 4,
+        "debug": false,
+        "tags": null,
+        "ratio": 0.5
+      }
+    },
+    {
+      "name": "without developer or CLI, the environment wins",
+      "settings": [
+        {
+          "key": "host",
+          "type": "str",
+          "default": "localhost"
+        },
+        {
+          "key": "port",
+          "type": "int",
+          "default": 8080
+        },
+        {
+          "key": "debug",
+          "type": "bool",
+          "default": false
+        },
+        {
+          "key": "tags",
+          "type": "list",
+          "default": null
+        },
+        {
+          "key": "ratio",
+          "type": "float",
+          "default": 0.5
+        }
+      ],
+      "layers": {
+        "config": {
+          "port": 2
+        },
+        "env": {
+          "port": "3"
+        }
+      },
+      "expect": {
+        "host": "localhost",
+        "port": 3,
+        "debug": false,
+        "tags": null,
+        "ratio": 0.5
+      }
+    },
+    {
+      "name": "layers combine key by key",
+      "settings": [
+        {
+          "key": "host",
+          "type": "str",
+          "default": "localhost"
+        },
+        {
+          "key": "port",
+          "type": "int",
+          "default": 8080
+        },
+        {
+          "key": "debug",
+          "type": "bool",
+          "default": false
+        },
+        {
+          "key": "tags",
+          "type": "list",
+          "default": null
+        },
+        {
+          "key": "ratio",
+          "type": "float",
+          "default": 0.5
+        }
+      ],
+      "layers": {
+        "config": {
+          "host": "h.example"
+        },
+        "env": {
+          "port": "1"
+        },
+        "cli": {
+          "debug": true
+        }
+      },
+      "expect": {
+        "host": "h.example",
+        "port": 1,
+        "debug": true,
+        "tags": null,
+        "ratio": 0.5
+      }
+    },
+    {
+      "name": "null is no opinion",
+      "settings": [
+        {
+          "key": "host",
+          "type": "str",
+          "default": "localhost"
+        },
+        {
+          "key": "port",
+          "type": "int",
+          "default": 8080
+        },
+        {
+          "key": "debug",
+          "type": "bool",
+          "default": false
+        },
+        {
+          "key": "tags",
+          "type": "list",
+          "default": null
+        },
+        {
+          "key": "ratio",
+          "type": "float",
+          "default": 0.5
+        }
+      ],
+      "layers": {
+        "config": {
+          "port": 9000
+        },
+        "cli": {
+          "port": null
+        }
+      },
+      "expect": {
+        "host": "localhost",
+        "port": 9000,
+        "debug": false,
+        "tags": null,
+        "ratio": 0.5
+      }
+    },
+    {
+      "name": "an empty environment value is cast, not skipped (int)",
+      "settings": [
+        {
+          "key": "host",
+          "type": "str",
+          "default": "localhost"
+        },
+        {
+          "key": "port",
+          "type": "int",
+          "default": 8080
+        },
+        {
+          "key": "debug",
+          "type": "bool",
+          "default": false
+        },
+        {
+          "key": "tags",
+          "type": "list",
+          "default": null
+        },
+        {
+          "key": "ratio",
+          "type": "float",
+          "default": 0.5
+        }
+      ],
+      "layers": {
+        "config": {
+          "port": 9000
+        },
+        "env": {
+          "port": ""
+        }
+      },
+      "expect": {
+        "host": "localhost",
+        "port": null,
+        "debug": false,
+        "tags": null,
+        "ratio": 0.5
+      }
+    },
+    {
+      "name": "an empty environment value is cast, not skipped (bool)",
+      "settings": [
+        {
+          "key": "host",
+          "type": "str",
+          "default": "localhost"
+        },
+        {
+          "key": "port",
+          "type": "int",
+          "default": 8080
+        },
+        {
+          "key": "debug",
+          "type": "bool",
+          "default": false
+        },
+        {
+          "key": "tags",
+          "type": "list",
+          "default": null
+        },
+        {
+          "key": "ratio",
+          "type": "float",
+          "default": 0.5
+        }
+      ],
+      "layers": {
+        "config": {
+          "debug": true
+        },
+        "env": {
+          "debug": ""
+        }
+      },
+      "expect": {
+        "host": "localhost",
+        "port": 8080,
+        "debug": false,
+        "tags": null,
+        "ratio": 0.5
+      }
+    },
+    {
+      "name": "an empty environment value is cast, not skipped (str)",
+      "settings": [
+        {
+          "key": "host",
+          "type": "str",
+          "default": "localhost"
+        },
+        {
+          "key": "port",
+          "type": "int",
+          "default": 8080
+        },
+        {
+          "key": "debug",
+          "type": "bool",
+          "default": false
+        },
+        {
+          "key": "tags",
+          "type": "list",
+          "default": null
+        },
+        {
+          "key": "ratio",
+          "type": "float",
+          "default": 0.5
+        }
+      ],
+      "layers": {
+        "config": {
+          "host": "h"
+        },
+        "env": {
+          "host": ""
+        }
+      },
+      "expect": {
+        "host": null,
+        "port": 8080,
+        "debug": false,
+        "tags": null,
+        "ratio": 0.5
+      }
+    },
+    {
+      "name": "an empty environment value is cast, not skipped (list)",
+      "settings": [
+        {
+          "key": "host",
+          "type": "str",
+          "default": "localhost"
+        },
+        {
+          "key": "port",
+          "type": "int",
+          "default": 8080
+        },
+        {
+          "key": "debug",
+          "type": "bool",
+          "default": false
+        },
+        {
+          "key": "tags",
+          "type": "list",
+          "default": null
+        },
+        {
+          "key": "ratio",
+          "type": "float",
+          "default": 0.5
+        }
+      ],
+      "layers": {
+        "config": {
+          "tags": [
+            "a"
+          ]
+        },
+        "env": {
+          "tags": ""
+        }
+      },
+      "expect": {
+        "host": "localhost",
+        "port": 8080,
+        "debug": false,
+        "tags": null,
+        "ratio": 0.5
+      }
+    },
+    {
+      "name": "keys no setting declares are ignored",
+      "settings": [
+        {
+          "key": "host",
+          "type": "str",
+          "default": "localhost"
+        },
+        {
+          "key": "port",
+          "type": "int",
+          "default": 8080
+        },
+        {
+          "key": "debug",
+          "type": "bool",
+          "default": false
+        },
+        {
+          "key": "tags",
+          "type": "list",
+          "default": null
+        },
+        {
+          "key": "ratio",
+          "type": "float",
+          "default": 0.5
+        }
+      ],
+      "layers": {
+        "env": {
+          "nope": "1"
+        },
+        "config": {
+          "other": 2
+        },
+        "cli": {
+          "more": 3
+        }
+      },
+      "expect": {
+        "host": "localhost",
+        "port": 8080,
+        "debug": false,
+        "tags": null,
+        "ratio": 0.5
+      }
+    },
+    {
+      "name": "environment strings are cast",
+      "settings": [
+        {
+          "key": "host",
+          "type": "str",
+          "default": "localhost"
+        },
+        {
+          "key": "port",
+          "type": "int",
+          "default": 8080
+        },
+        {
+          "key": "debug",
+          "type": "bool",
+          "default": false
+        },
+        {
+          "key": "tags",
+          "type": "list",
+          "default": null
+        },
+        {
+          "key": "ratio",
+          "type": "float",
+          "default": 0.5
+        }
+      ],
+      "layers": {
+        "env": {
+          "port": "7000",
+          "debug": "yes",
+          "ratio": "0.25",
+          "tags": "a, b"
+        }
+      },
+      "expect": {
+        "host": "localhost",
+        "port": 7000,
+        "debug": true,
+        "tags": [
+          "a",
+          "b"
+        ],
+        "ratio": 0.25
+      }
+    },
+    {
+      "name": "native config values are cast too",
+      "settings": [
+        {
+          "key": "host",
+          "type": "str",
+          "default": "localhost"
+        },
+        {
+          "key": "port",
+          "type": "int",
+          "default": 8080
+        },
+        {
+          "key": "debug",
+          "type": "bool",
+          "default": false
+        },
+        {
+          "key": "tags",
+          "type": "list",
+          "default": null
+        },
+        {
+          "key": "ratio",
+          "type": "float",
+          "default": 0.5
+        }
+      ],
+      "layers": {
+        "config": {
+          "port": 9000,
+          "debug": true,
+          "tags": [
+            "x",
+            " y "
+          ]
+        }
+      },
+      "expect": {
+        "host": "localhost",
+        "port": 9000,
+        "debug": true,
+        "tags": [
+          "x",
+          "y"
+        ],
+        "ratio": 0.5
+      }
+    },
+    {
+      "name": "a list is replaced, not concatenated",
+      "settings": [
+        {
+          "key": "host",
+          "type": "str",
+          "default": "localhost"
+        },
+        {
+          "key": "port",
+          "type": "int",
+          "default": 8080
+        },
+        {
+          "key": "debug",
+          "type": "bool",
+          "default": false
+        },
+        {
+          "key": "tags",
+          "type": "list",
+          "default": null
+        },
+        {
+          "key": "ratio",
+          "type": "float",
+          "default": 0.5
+        }
+      ],
+      "layers": {
+        "config": {
+          "tags": [
+            "a",
+            "b"
+          ]
+        },
+        "env": {
+          "tags": "c"
+        }
+      },
+      "expect": {
+        "host": "localhost",
+        "port": 8080,
+        "debug": false,
+        "tags": [
+          "c"
+        ],
+        "ratio": 0.5
+      }
+    },
+    {
+      "name": "an int setting accepts a fraction",
+      "settings": [
+        {
+          "key": "host",
+          "type": "str",
+          "default": "localhost"
+        },
+        {
+          "key": "port",
+          "type": "int",
+          "default": 8080
+        },
+        {
+          "key": "debug",
+          "type": "bool",
+          "default": false
+        },
+        {
+          "key": "tags",
+          "type": "list",
+          "default": null
+        },
+        {
+          "key": "ratio",
+          "type": "float",
+          "default": 0.5
+        }
+      ],
+      "layers": {
+        "config": {
+          "port": 1.5
+        }
+      },
+      "expect": {
+        "host": "localhost",
+        "port": 1.5,
+        "debug": false,
+        "tags": null,
+        "ratio": 0.5
+      }
+    },
+    {
+      "name": "an unset setting stays unset",
+      "settings": [
+        {
+          "key": "host",
+          "type": "str",
+          "default": "localhost"
+        },
+        {
+          "key": "port",
+          "type": "int",
+          "default": 8080
+        },
+        {
+          "key": "debug",
+          "type": "bool",
+          "default": false
+        },
+        {
+          "key": "tags",
+          "type": "list",
+          "default": null
+        },
+        {
+          "key": "ratio",
+          "type": "float",
+          "default": 0.5
+        }
+      ],
+      "layers": {
+        "env": {
+          "host": "x"
+        }
+      },
+      "expect": {
+        "host": "x",
+        "port": 8080,
+        "debug": false,
+        "tags": null,
+        "ratio": 0.5
+      }
+    },
+    {
+      "name": "an unparseable number is an error",
+      "settings": [
+        {
+          "key": "host",
+          "type": "str",
+          "default": "localhost"
+        },
+        {
+          "key": "port",
+          "type": "int",
+          "default": 8080
+        },
+        {
+          "key": "debug",
+          "type": "bool",
+          "default": false
+        },
+        {
+          "key": "tags",
+          "type": "list",
+          "default": null
+        },
+        {
+          "key": "ratio",
+          "type": "float",
+          "default": 0.5
+        }
+      ],
+      "layers": {
+        "env": {
+          "port": "abc"
+        }
+      },
+      "error": true
+    },
+    {
+      "name": "an unparseable boolean is an error",
+      "settings": [
+        {
+          "key": "host",
+          "type": "str",
+          "default": "localhost"
+        },
+        {
+          "key": "port",
+          "type": "int",
+          "default": 8080
+        },
+        {
+          "key": "debug",
+          "type": "bool",
+          "default": false
+        },
+        {
+          "key": "tags",
+          "type": "list",
+          "default": null
+        },
+        {
+          "key": "ratio",
+          "type": "float",
+          "default": 0.5
+        }
+      ],
+      "layers": {
+        "cli": {
+          "debug": "maybe"
+        }
+      },
+      "error": true
+    },
+    {
+      "name": "a bad value in a lower layer is still an error",
+      "settings": [
+        {
+          "key": "host",
+          "type": "str",
+          "default": "localhost"
+        },
+        {
+          "key": "port",
+          "type": "int",
+          "default": 8080
+        },
+        {
+          "key": "debug",
+          "type": "bool",
+          "default": false
+        },
+        {
+          "key": "tags",
+          "type": "list",
+          "default": null
+        },
+        {
+          "key": "ratio",
+          "type": "float",
+          "default": 0.5
+        }
+      ],
+      "layers": {
+        "config": {
+          "port": "abc"
+        },
+        "cli": {
+          "port": 1
+        }
+      },
+      "error": true
+    },
+    {
+      "name": "a default is cast like any other layer",
+      "settings": [
+        {
+          "key": "tags",
+          "type": "list",
+          "default": [
+            "a",
+            " b ",
+            ""
+          ]
+        }
+      ],
+      "layers": {},
+      "expect": {
+        "tags": [
+          "a",
+          "b"
+        ]
+      }
+    },
+    {
+      "name": "a default can be overridden and is then irrelevant",
+      "settings": [
+        {
+          "key": "tags",
+          "type": "list",
+          "default": [
+            "a",
+            " b ",
+            ""
+          ]
+        }
+      ],
+      "layers": {
+        "env": {
+          "tags": "x"
+        }
+      },
+      "expect": {
+        "tags": [
+          "x"
+        ]
+      }
+    }
+  ]
+}

@@ -1,0 +1,273 @@
+{
+  "spec_version": 1,
+  "description": "The gitignore guard for a private local file: switched off? exists? inside a git working tree? ignored by its rules? The first failure is the `reason` (these strings are part of the spec). `files` describes a fresh tree (a key ending in `/` is a directory, `null` is its content); `target` is the file to check; `kill_switch_var` names an environment variable read from `env`.",
+  "cases": [
+    {
+      "name": "active: exists, in a git tree, and ignored",
+      "files": {
+        ".git/": null,
+        ".gitignore": "private.toml\n",
+        "private.toml": ""
+      },
+      "target": "private.toml",
+      "expect": {
+        "active": true,
+        "reason": null
+      }
+    },
+    {
+      "name": "the file does not exist",
+      "files": {
+        ".git/": null,
+        ".gitignore": "private.toml\n"
+      },
+      "target": "private.toml",
+      "expect": {
+        "active": false,
+        "reason": "file not found"
+      }
+    },
+    {
+      "name": "not inside a git working tree",
+      "files": {
+        ".gitignore": "private.toml\n",
+        "private.toml": ""
+      },
+      "target": "private.toml",
+      "expect": {
+        "active": false,
+        "reason": "not inside a git working tree"
+      }
+    },
+    {
+      "name": "not covered by the ignore rules",
+      "files": {
+        ".git/": null,
+        ".gitignore": "other\n",
+        "private.toml": ""
+      },
+      "target": "private.toml",
+      "expect": {
+        "active": false,
+        "reason": "not covered by .gitignore"
+      }
+    },
+    {
+      "name": "no .gitignore at all",
+      "files": {
+        ".git/": null,
+        "private.toml": ""
+      },
+      "target": "private.toml",
+      "expect": {
+        "active": false,
+        "reason": "not covered by .gitignore"
+      }
+    },
+    {
+      "name": "a .git file (worktree or submodule) counts as a git tree",
+      "files": {
+        ".git": "gitdir: /elsewhere\n",
+        ".gitignore": "private.toml\n",
+        "private.toml": ""
+      },
+      "target": "private.toml",
+      "expect": {
+        "active": true,
+        "reason": null
+      }
+    },
+    {
+      "name": "the repository's info/exclude counts",
+      "files": {
+        ".git/": null,
+        ".git/info/exclude": "private.toml\n",
+        "private.toml": ""
+      },
+      "target": "private.toml",
+      "expect": {
+        "active": true,
+        "reason": null
+      }
+    },
+    {
+      "name": "a nested .gitignore counts",
+      "files": {
+        ".git/": null,
+        "sub/.gitignore": "*.toml\n",
+        "sub/private.toml": ""
+      },
+      "target": "sub/private.toml",
+      "expect": {
+        "active": true,
+        "reason": null
+      }
+    },
+    {
+      "name": "the repository root may be above the file",
+      "files": {
+        ".git/": null,
+        ".gitignore": "*.local.toml\n",
+        "a/b/x.local.toml": ""
+      },
+      "target": "a/b/x.local.toml",
+      "expect": {
+        "active": true,
+        "reason": null
+      }
+    },
+    {
+      "name": "a negation un-ignores",
+      "files": {
+        ".git/": null,
+        ".gitignore": "*.toml\n!keep.toml\n",
+        "keep.toml": ""
+      },
+      "target": "keep.toml",
+      "expect": {
+        "active": false,
+        "reason": "not covered by .gitignore"
+      }
+    },
+    {
+      "name": "an ignored directory ignores what is inside it",
+      "files": {
+        ".git/": null,
+        ".gitignore": "secret/\n",
+        "secret/x.toml": ""
+      },
+      "target": "secret/x.toml",
+      "expect": {
+        "active": true,
+        "reason": null
+      }
+    },
+    {
+      "name": "a kill switch set to off deactivates the file",
+      "files": {
+        ".git/": null,
+        ".gitignore": "private.toml\n",
+        "private.toml": ""
+      },
+      "target": "private.toml",
+      "kill_switch_var": "X",
+      "env": {
+        "X": "off"
+      },
+      "expect": {
+        "active": false,
+        "reason": "disabled by X=off"
+      }
+    },
+    {
+      "name": "the kill switch value is trimmed in the reason",
+      "files": {
+        ".git/": null,
+        ".gitignore": "private.toml\n",
+        "private.toml": ""
+      },
+      "target": "private.toml",
+      "kill_switch_var": "X",
+      "env": {
+        "X": " OFF "
+      },
+      "expect": {
+        "active": false,
+        "reason": "disabled by X=OFF"
+      }
+    },
+    {
+      "name": "0, false and no also switch it off",
+      "files": {
+        ".git/": null,
+        ".gitignore": "private.toml\n",
+        "private.toml": ""
+      },
+      "target": "private.toml",
+      "kill_switch_var": "X",
+      "env": {
+        "X": "false"
+      },
+      "expect": {
+        "active": false,
+        "reason": "disabled by X=false"
+      }
+    },
+    {
+      "name": "other kill switch values do nothing",
+      "files": {
+        ".git/": null,
+        ".gitignore": "private.toml\n",
+        "private.toml": ""
+      },
+      "target": "private.toml",
+      "kill_switch_var": "X",
+      "env": {
+        "X": "on"
+      },
+      "expect": {
+        "active": true,
+        "reason": null
+      }
+    },
+    {
+      "name": "an empty kill switch does nothing",
+      "files": {
+        ".git/": null,
+        ".gitignore": "private.toml\n",
+        "private.toml": ""
+      },
+      "target": "private.toml",
+      "kill_switch_var": "X",
+      "env": {
+        "X": ""
+      },
+      "expect": {
+        "active": true,
+        "reason": null
+      }
+    },
+    {
+      "name": "with no kill switch variable, nothing is switched off",
+      "files": {
+        ".git/": null,
+        ".gitignore": "private.toml\n",
+        "private.toml": ""
+      },
+      "target": "private.toml",
+      "env": {
+        "X": "off"
+      },
+      "expect": {
+        "active": true,
+        "reason": null
+      }
+    },
+    {
+      "name": "the kill switch is checked before the file exists",
+      "files": {
+        ".git/": null
+      },
+      "target": "private.toml",
+      "kill_switch_var": "X",
+      "env": {
+        "X": "off"
+      },
+      "expect": {
+        "active": false,
+        "reason": "disabled by X=off"
+      }
+    },
+    {
+      "name": "a missing file is reported before a missing git tree",
+      "files": {
+        ".gitignore": "private.toml\n"
+      },
+      "target": "private.toml",
+      "expect": {
+        "active": false,
+        "reason": "file not found"
+      }
+    }
+  ]
+}
