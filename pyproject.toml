@@ -1,0 +1,93 @@
+[project]
+name = "conclude"
+dynamic = ["version"]
+description = "Set up your defaults; conclude infers the env vars, config-file keys, and CLI flags, and resolves them all into one settings object."
+readme = "README.md"
+requires-python = ">=3.11"
+license = "MIT"
+license-files = ["LICENSE"]
+authors = [{ name = "Payam Tanaka" }]
+keywords = [
+    "config",
+    "configuration",
+    "settings",
+    "cli",
+    "environment-variables",
+    "dotenv",
+    "toml",
+]
+classifiers = [
+    "Development Status :: 5 - Production/Stable",
+    "Environment :: Console",
+    "Intended Audience :: Developers",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3 :: Only",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
+    "Topic :: Software Development :: Libraries",
+    "Topic :: Software Development :: Libraries :: Python Modules",
+    "Typing :: Typed",
+]
+# Stdlib-only (tomllib). The optional "gitignore" extra adds pathspec,
+# needed only to verify that a private file (the developer config file,
+# or a .env held to dotenv_require_gitignored) is gitignored.
+dependencies = []
+
+[project.optional-dependencies]
+gitignore = ["pathspec>=0.12"]
+
+[project.urls]
+Homepage = "https://github.com/tanakapayam/conclude"
+Documentation = "https://github.com/tanakapayam/conclude/blob/main/docs/guide.md"
+Repository = "https://github.com/tanakapayam/conclude"
+Issues = "https://github.com/tanakapayam/conclude/issues"
+Changelog = "https://github.com/tanakapayam/conclude/blob/main/CHANGELOG.md"
+
+[build-system]
+# 1.27+ for PEP 639 (SPDX `license` expression + `license-files`).
+requires = ["hatchling>=1.27"]
+build-backend = "hatchling.build"
+
+[tool.hatch.version]
+# Single source of truth for the version: hatchling reads it straight
+# out of __version__ in this file at build time, rather than also
+# hardcoding it here in pyproject.toml where it could drift out of sync.
+path = "src/conclude/__init__.py"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/conclude"]
+
+[dependency-groups]
+dev = ["ruff>=0.6.0", "pytest>=8.0", "pathspec>=0.12", "mypy>=1.10", "twine>=5.0"]
+
+[tool.ruff]
+target-version = "py311"
+line-length = 100
+src = ["src"]
+
+[tool.ruff.lint]
+select = [
+    "E",   # pycodestyle errors
+    "F",   # pyflakes
+    "I",   # isort
+    "UP",  # pyupgrade
+    "B",   # flake8-bugbear
+    "SIM", # flake8-simplify
+    "C4",  # comprehensions
+]
+ignore = ["E501"]  # line length handled by formatter
+
+[tool.ruff.lint.isort]
+known-first-party = ["conclude"]
+
+[tool.ruff.format]
+quote-style = "double"
+# The docs keep deliberately aligned comments in their code samples.
+exclude = ["*.md"]
+
+[tool.mypy]
+strict = true
+files = ["src"]

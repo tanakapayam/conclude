@@ -1,0 +1,125 @@
+name: Publish
+
+# One-time setup, before the first run:
+#   1. On https://pypi.org (and https://test.pypi.org), add a trusted publisher
+#      for the project `conclude`: this repository, workflow `publish.yml`,
+#      environment `pypi` (`testpypi` on TestPyPI). For a project that doesn't
+#      exist yet, use "Publishing" -> "Add a new pending publisher".
+#   2. In this repository's Settings -> Environments, create `pypi` and
+#      `testpypi`. Put required reviewers on `pypi` to make a real release
+#      wait for an explicit approval.
+#
+# Then:
+#   - A dry run: Actions -> Publish -> Run workflow -> target `testpypi`.
+#   - A release: publish a GitHub Release whose tag is `v<version>`.
+
+on:
+  release:
+    types: [published]
+  workflow_dispatch:
+    inputs:
+      target:
+        description: Where to publish
+        type: choice
+        options: [testpypi, pypi]
+        default: testpypi
+
+permissions:
+  contents: read
+
+jobs:
+  ci:
+    name: CI
+    uses: ./.github/workflows/ci.yml
+
+  build:
+    name: Build the distributions
+    needs: ci
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      TARGET: ${{ github.event_name == 'release' && 'pypi' || inputs.target }}
+    steps:
+      - name: Check out
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Set up uv and Python 3.13
+        uses: astral-sh/setup-uv@bec219d24cd3e171d82865faccec33120bb574f4 # v10.1.0
+        with:
+          python-version: "3.13"
+      - name: Read the version
+        id: version
+        run: echo "version=$(grep -oP '^__version__ = "\K[^"]+' src/conclude/__init__.py)" >> "$GITHUB_OUTPUT"
+      - name: Check the release is ready (real PyPI only)
+        if: env.TARGET == 'pypi'
+        env:
+          TAG: ${{ github.event.release.tag_name }}
+          VERSION: ${{ steps.version.outputs.version }}
+        run: |
+          if [ -n "$TAG" ] && [ "$TAG" != "v$VERSION" ]; then
+            echo "::error::The release tag $TAG does not match the package version v$VERSION."
+            exit 1
+          fi
+          if ! grep -q "^## \[$VERSION\]" CHANGELOG.md; then
+            echo "::error::CHANGELOG.md has no entry for $VERSION."
+            exit 1
+          fi
+          if grep -q "^## \[$VERSION\] - Unreleased" CHANGELOG.md; then
+            echo "::error::CHANGELOG.md still marks $VERSION as Unreleased; put the date on it."
+            exit 1
+          fi
+      - name: Build the sdist and wheel
+        run: uv build
+      - name: twine check
+        run: uvx twine check --strict dist/*
+      - name: Upload the distributions
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: dist
+          path: dist/
+          if-no-files-found: error
+          retention-days: 7
+
+  publish-testpypi:
+    name: Publish to TestPyPI
+    needs: build
+    if: github.event_name == 'workflow_dispatch' && inputs.target == 'testpypi'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    environment:
+      name: testpypi
+      url: https://test.pypi.org/p/conclude
+    permissions:
+      id-token: write # trusted publishing (OIDC); no API token is stored
+    steps:
+      - name: Download the distributions
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          name: dist
+          path: dist/
+      - name: Publish to TestPyPI
+        uses: pypa/gh-action-pypi-publish@dc37677b2e1c63e2034f94d8a5b11f265b73ba33 # v1.14.2
+        with:
+          repository-url: https://test.pypi.org/legacy/
+          skip-existing: true
+
+  publish-pypi:
+    name: Publish to PyPI
+    needs: build
+    if: github.event_name == 'release' || (github.event_name == 'workflow_dispatch' && inputs.target == 'pypi')
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    environment:
+      name: pypi
+      url: https://pypi.org/p/conclude
+    permissions:
+      id-token: write # trusted publishing (OIDC); no API token is stored
+    steps:
+      - name: Download the distributions
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          name: dist
+          path: dist/
+      - name: Publish to PyPI
+        uses: pypa/gh-action-pypi-publish@dc37677b2e1c63e2034f94d8a5b11f265b73ba33 # v1.14.2

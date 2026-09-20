@@ -1,0 +1,29 @@
+# Local configuration / secrets (the names the docs use; never commit these)
+.env
+.env.local
+.developer.toml
+*.local.toml
+
+# Python
+__pycache__/
+*.egg-info/
+*.py[cod]
+
+# Test / type-check / lint caches
+.coverage
+.mypy_cache/
+.pytest_cache/
+.ruff_cache/
+htmlcov/
+
+# Build artifacts
+build/
+dist/
+
+# Virtual environments
+.venv/
+.venv-*/
+venv/
+
+# OS
+.DS_Store

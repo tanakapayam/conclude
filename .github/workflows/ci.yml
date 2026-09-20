@@ -1,0 +1,109 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_call: # publish.yml runs this before it publishes anything
+
+permissions:
+  contents: read
+
+# Every third-party action is pinned to a full commit SHA (the version is
+# in the trailing comment); .github/dependabot.yml keeps them current.
+
+jobs:
+  test:
+    name: pytest (Python ${{ matrix.python-version }})
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ["3.11", "3.12", "3.13", "3.14"]
+    steps:
+      - name: Check out
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Set up uv and Python ${{ matrix.python-version }}
+        uses: astral-sh/setup-uv@bec219d24cd3e171d82865faccec33120bb574f4 # v10.1.0
+        with:
+          python-version: ${{ matrix.python-version }}
+      - name: Install the project and its dev tools (pathspec included)
+        run: uv sync --locked
+      - name: pytest
+        run: uv run pytest -q
+
+  lint:
+    name: ruff and mypy
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Check out
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Set up uv and Python 3.11 (the oldest supported version)
+        uses: astral-sh/setup-uv@bec219d24cd3e171d82865faccec33120bb574f4 # v10.1.0
+        with:
+          python-version: "3.11"
+      - name: Install the project and its dev tools
+        run: uv sync --locked
+      - name: ruff check
+        run: uv run ruff check .
+      - name: ruff format --check
+        run: uv run ruff format --check .
+      - name: mypy
+        run: uv run mypy
+
+  no-extras:
+    name: pytest with no optional dependencies
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Check out
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Set up uv and Python 3.13
+        uses: astral-sh/setup-uv@bec219d24cd3e171d82865faccec33120bb574f4 # v10.1.0
+        with:
+          python-version: "3.13"
+      - name: Install the package on its own, plus pytest (no pathspec)
+        run: |
+          uv venv "$RUNNER_TEMP/venv-plain"
+          uv pip install --python "$RUNNER_TEMP/venv-plain/bin/python" . pytest
+      - name: pytest (the pathspec-dependent tests skip themselves)
+        run: |
+          "$RUNNER_TEMP/venv-plain/bin/python" -m pytest -q
+
+  build:
+    name: build and twine check
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Check out
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Set up uv and Python 3.13
+        uses: astral-sh/setup-uv@bec219d24cd3e171d82865faccec33120bb574f4 # v10.1.0
+        with:
+          python-version: "3.13"
+      - name: Build the sdist and wheel
+        run: uv build
+      - name: twine check
+        run: uvx twine check --strict dist/*
+      - name: Smoke-test the wheel in a clean environment
+        run: |
+          uv venv "$RUNNER_TEMP/venv-wheel"
+          uv pip install --python "$RUNNER_TEMP/venv-wheel/bin/python" dist/*.whl
+          "$RUNNER_TEMP/venv-wheel/bin/python" - <<'PY'
+          import pathlib
+
+          import conclude
+
+          print("conclude", conclude.__version__)
+          assert (pathlib.Path(conclude.__file__).parent / "py.typed").exists()
+          PY
