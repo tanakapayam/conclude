@@ -1,0 +1,315 @@
+{
+  "spec_version": 1,
+  "description": "The report of which sources are in play (`describe_sources` / `describeSources`). `options` are the sources the application configures, with `{root}` standing for a fresh working directory: `system`, `user` and `project` (paths or null), `aux` (the sibling pattern or null), `dotenv` (`path`, `require_gitignored`) and `developer` (null for not opted in, or `{file}` -- the adapter writes its ecosystem's manifest naming that file). `files` builds the tree; `env` is the environment the kill switch is read from. `expect` is the whole report. The wording of a `not configured` developer reason is binding-specific and not covered here.",
+  "cases": [
+    {
+      "name": "everything switched off",
+      "app": "myapp",
+      "options": {
+        "system": null,
+        "user": null,
+        "project": null,
+        "aux": ".config.*.toml",
+        "dotenv": {
+          "path": null,
+          "require_gitignored": false
+        },
+        "developer": null
+      },
+      "expect": "config sources:\n  system config     disabled\n  user config       disabled\n  project config    disabled\n  .env file         disabled\n  developer config  not opted in"
+    },
+    {
+      "name": "every source configured",
+      "app": "myapp",
+      "options": {
+        "system": "{root}/system.toml",
+        "user": "{root}/user.toml",
+        "project": "{root}/proj/.config.toml",
+        "aux": ".config.*.toml",
+        "dotenv": {
+          "path": "{root}/.env",
+          "require_gitignored": false
+        },
+        "developer": {
+          "file": ".developer.toml"
+        }
+      },
+      "files": {
+        ".git/": null,
+        ".gitignore": ".env\n.developer.toml\n",
+        ".developer.toml": ""
+      },
+      "expect": "config sources:\n  system config     {root}/system.toml\n  user config       {root}/user.toml\n  project config    {root}/proj/.config.toml, {root}/proj/.config.*.toml\n  .env file         {root}/.env\n  developer config  {root}/.developer.toml -- configured, active"
+    },
+    {
+      "name": "a project file without siblings",
+      "app": "myapp",
+      "options": {
+        "system": null,
+        "user": null,
+        "project": "{root}/.config.toml",
+        "aux": null,
+        "dotenv": {
+          "path": null,
+          "require_gitignored": false
+        },
+        "developer": null
+      },
+      "expect": "config sources:\n  system config     disabled\n  user config       disabled\n  project config    {root}/.config.toml\n  .env file         disabled\n  developer config  not opted in"
+    },
+    {
+      "name": "a custom sibling pattern",
+      "app": "myapp",
+      "options": {
+        "system": null,
+        "user": null,
+        "project": "{root}/.config.toml",
+        "aux": ".local.*.toml",
+        "dotenv": {
+          "path": null,
+          "require_gitignored": false
+        },
+        "developer": null
+      },
+      "expect": "config sources:\n  system config     disabled\n  user config       disabled\n  project config    {root}/.config.toml, {root}/.local.*.toml\n  .env file         disabled\n  developer config  not opted in"
+    },
+    {
+      "name": "a .env file that is not held to the guard",
+      "app": "myapp",
+      "options": {
+        "system": null,
+        "user": null,
+        "project": null,
+        "aux": ".config.*.toml",
+        "dotenv": {
+          "path": "{root}/.env",
+          "require_gitignored": false
+        },
+        "developer": null
+      },
+      "expect": "config sources:\n  system config     disabled\n  user config       disabled\n  project config    disabled\n  .env file         {root}/.env\n  developer config  not opted in"
+    },
+    {
+      "name": "a guarded .env that passes",
+      "app": "myapp",
+      "options": {
+        "system": null,
+        "user": null,
+        "project": null,
+        "aux": ".config.*.toml",
+        "dotenv": {
+          "path": "{root}/.env",
+          "require_gitignored": true
+        },
+        "developer": null
+      },
+      "files": {
+        ".git/": null,
+        ".gitignore": ".env\n.developer.toml\n",
+        ".env": ""
+      },
+      "expect": "config sources:\n  system config     disabled\n  user config       disabled\n  project config    disabled\n  .env file         {root}/.env -- active (gitignored)\n  developer config  not opted in"
+    },
+    {
+      "name": "a guarded .env that is not ignored",
+      "app": "myapp",
+      "options": {
+        "system": null,
+        "user": null,
+        "project": null,
+        "aux": ".config.*.toml",
+        "dotenv": {
+          "path": "{root}/.env",
+          "require_gitignored": true
+        },
+        "developer": null
+      },
+      "files": {
+        ".git/": null,
+        ".gitignore": "other\n",
+        ".env": ""
+      },
+      "expect": "config sources:\n  system config     disabled\n  user config       disabled\n  project config    disabled\n  .env file         {root}/.env -- inactive (not covered by .gitignore)\n  developer config  not opted in"
+    },
+    {
+      "name": "a guarded .env that does not exist",
+      "app": "myapp",
+      "options": {
+        "system": null,
+        "user": null,
+        "project": null,
+        "aux": ".config.*.toml",
+        "dotenv": {
+          "path": "{root}/.env",
+          "require_gitignored": true
+        },
+        "developer": null
+      },
+      "files": {
+        ".git/": null,
+        ".gitignore": ".env\n.developer.toml\n"
+      },
+      "expect": "config sources:\n  system config     disabled\n  user config       disabled\n  project config    disabled\n  .env file         {root}/.env -- inactive (file not found)\n  developer config  not opted in"
+    },
+    {
+      "name": "a guarded .env outside a git tree",
+      "app": "myapp",
+      "options": {
+        "system": null,
+        "user": null,
+        "project": null,
+        "aux": ".config.*.toml",
+        "dotenv": {
+          "path": "{root}/.env",
+          "require_gitignored": true
+        },
+        "developer": null
+      },
+      "files": {
+        ".env": ""
+      },
+      "expect": "config sources:\n  system config     disabled\n  user config       disabled\n  project config    disabled\n  .env file         {root}/.env -- inactive (not inside a git working tree)\n  developer config  not opted in"
+    },
+    {
+      "name": "a developer file that is not ignored",
+      "app": "myapp",
+      "options": {
+        "system": null,
+        "user": null,
+        "project": null,
+        "aux": ".config.*.toml",
+        "dotenv": {
+          "path": null,
+          "require_gitignored": false
+        },
+        "developer": {
+          "file": ".developer.toml"
+        }
+      },
+      "files": {
+        ".git/": null,
+        ".gitignore": "other\n",
+        ".developer.toml": ""
+      },
+      "expect": "config sources:\n  system config     disabled\n  user config       disabled\n  project config    disabled\n  .env file         disabled\n  developer config  {root}/.developer.toml -- configured, inactive (not covered by .gitignore)"
+    },
+    {
+      "name": "a developer file that does not exist",
+      "app": "myapp",
+      "options": {
+        "system": null,
+        "user": null,
+        "project": null,
+        "aux": ".config.*.toml",
+        "dotenv": {
+          "path": null,
+          "require_gitignored": false
+        },
+        "developer": {
+          "file": ".developer.toml"
+        }
+      },
+      "files": {
+        ".git/": null,
+        ".gitignore": ".env\n.developer.toml\n"
+      },
+      "expect": "config sources:\n  system config     disabled\n  user config       disabled\n  project config    disabled\n  .env file         disabled\n  developer config  {root}/.developer.toml -- configured, inactive (file not found)"
+    },
+    {
+      "name": "a developer file outside a git tree",
+      "app": "myapp",
+      "options": {
+        "system": null,
+        "user": null,
+        "project": null,
+        "aux": ".config.*.toml",
+        "dotenv": {
+          "path": null,
+          "require_gitignored": false
+        },
+        "developer": {
+          "file": ".developer.toml"
+        }
+      },
+      "files": {
+        ".developer.toml": ""
+      },
+      "expect": "config sources:\n  system config     disabled\n  user config       disabled\n  project config    disabled\n  .env file         disabled\n  developer config  {root}/.developer.toml -- configured, inactive (not inside a git working tree)"
+    },
+    {
+      "name": "a dotenv developer file",
+      "app": "myapp",
+      "options": {
+        "system": null,
+        "user": null,
+        "project": null,
+        "aux": ".config.*.toml",
+        "dotenv": {
+          "path": null,
+          "require_gitignored": false
+        },
+        "developer": {
+          "file": ".env.local"
+        }
+      },
+      "files": {
+        ".git/": null,
+        ".gitignore": ".env.local\n",
+        ".env.local": ""
+      },
+      "expect": "config sources:\n  system config     disabled\n  user config       disabled\n  project config    disabled\n  .env file         disabled\n  developer config  {root}/.env.local -- configured, active"
+    },
+    {
+      "name": "the developer kill switch",
+      "app": "myapp",
+      "options": {
+        "system": null,
+        "user": null,
+        "project": null,
+        "aux": ".config.*.toml",
+        "dotenv": {
+          "path": null,
+          "require_gitignored": false
+        },
+        "developer": {
+          "file": ".developer.toml"
+        }
+      },
+      "files": {
+        ".git/": null,
+        ".gitignore": ".env\n.developer.toml\n",
+        ".developer.toml": ""
+      },
+      "env": {
+        "MYAPP_DEVELOPER_CONFIG": "off"
+      },
+      "expect": "config sources:\n  system config     disabled\n  user config       disabled\n  project config    disabled\n  .env file         disabled\n  developer config  {root}/.developer.toml -- configured, inactive (disabled by MYAPP_DEVELOPER_CONFIG=off)"
+    },
+    {
+      "name": "the kill switch is named after the app",
+      "app": "my-app",
+      "options": {
+        "system": null,
+        "user": null,
+        "project": null,
+        "aux": ".config.*.toml",
+        "dotenv": {
+          "path": null,
+          "require_gitignored": false
+        },
+        "developer": {
+          "file": ".developer.toml"
+        }
+      },
+      "files": {
+        ".git/": null,
+        ".gitignore": ".env\n.developer.toml\n",
+        ".developer.toml": ""
+      },
+      "env": {
+        "MY_APP_DEVELOPER_CONFIG": " OFF "
+      },
+      "expect": "config sources:\n  system config     disabled\n  user config       disabled\n  project config    disabled\n  .env file         disabled\n  developer config  {root}/.developer.toml -- configured, inactive (disabled by MY_APP_DEVELOPER_CONFIG=OFF)"
+    }
+  ]
+}

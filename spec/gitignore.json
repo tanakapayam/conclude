@@ -1,0 +1,189 @@
+{
+  "spec_version": 1,
+  "description": "Whether a set of gitignore rules matches a path. `files` are written into a fresh working tree (`.git/` is created; the paths listed under `paths` are created as empty files); every `ignored` verdict was produced by `git check-ignore --no-index`, with no global or system git configuration.",
+  "cases": [
+    {
+      "name": "the rules, as git itself judges them",
+      "files": {
+        ".gitignore": "*.local.toml\n!keep.local.toml\nbuild/\n/rootonly.toml\nsecret*\n.env.local\ndocs/*.tmp\n**/deep/*.priv\n*.py[cod]\n",
+        ".git/info/exclude": "excluded-by-info.toml\n!secret-keep.toml\n",
+        "sub/.gitignore": "!*.local.toml\nsubonly.toml\n/anchored.toml\n",
+        "sub/inner/.gitignore": "*.local.toml\n",
+        "ign/.gitignore": "*\n!.gitignore\n!keep.toml\n",
+        "outer/.gitignore": "inner/\n",
+        "outer/inner/.gitignore": "!file.toml\n",
+        "neg/.gitignore": "/*\n!/keep/\n!/keep/**\n"
+      },
+      "paths": [
+        {
+          "path": "a.local.toml",
+          "ignored": true
+        },
+        {
+          "path": "keep.local.toml",
+          "ignored": false
+        },
+        {
+          "path": "sub/a.local.toml",
+          "ignored": false
+        },
+        {
+          "path": "sub/keep.local.toml",
+          "ignored": false
+        },
+        {
+          "path": "sub/inner/a.local.toml",
+          "ignored": true
+        },
+        {
+          "path": "sub/inner/keep.local.toml",
+          "ignored": true
+        },
+        {
+          "path": "build/x.toml",
+          "ignored": true
+        },
+        {
+          "path": "x/build/y.toml",
+          "ignored": true
+        },
+        {
+          "path": "sub/build/z.toml",
+          "ignored": true
+        },
+        {
+          "path": "rootonly.toml",
+          "ignored": true
+        },
+        {
+          "path": "sub/rootonly.toml",
+          "ignored": false
+        },
+        {
+          "path": "secret.toml",
+          "ignored": true
+        },
+        {
+          "path": "secret-keep.toml",
+          "ignored": true
+        },
+        {
+          "path": "sub/secret2.toml",
+          "ignored": true
+        },
+        {
+          "path": ".env.local",
+          "ignored": true
+        },
+        {
+          "path": "sub/.env.local",
+          "ignored": true
+        },
+        {
+          "path": "docs/a.tmp",
+          "ignored": true
+        },
+        {
+          "path": "docs/x/a.tmp",
+          "ignored": false
+        },
+        {
+          "path": "a/deep/b.priv",
+          "ignored": true
+        },
+        {
+          "path": "a/b/deep/c.priv",
+          "ignored": true
+        },
+        {
+          "path": "deep/d.priv",
+          "ignored": true
+        },
+        {
+          "path": "excluded-by-info.toml",
+          "ignored": true
+        },
+        {
+          "path": "sub/excluded-by-info.toml",
+          "ignored": true
+        },
+        {
+          "path": "sub/subonly.toml",
+          "ignored": true
+        },
+        {
+          "path": "sub/x/subonly.toml",
+          "ignored": true
+        },
+        {
+          "path": "sub/anchored.toml",
+          "ignored": true
+        },
+        {
+          "path": "sub/y/anchored.toml",
+          "ignored": false
+        },
+        {
+          "path": "ign/other.toml",
+          "ignored": true
+        },
+        {
+          "path": "ign/keep.toml",
+          "ignored": false
+        },
+        {
+          "path": "ign/sub/keep.toml",
+          "ignored": true
+        },
+        {
+          "path": "outer/inner/file.toml",
+          "ignored": true
+        },
+        {
+          "path": "outer/other.toml",
+          "ignored": false
+        },
+        {
+          "path": "neg/a.toml",
+          "ignored": true
+        },
+        {
+          "path": "neg/keep/a.toml",
+          "ignored": false
+        },
+        {
+          "path": "neg/keep/deep/b.toml",
+          "ignored": false
+        },
+        {
+          "path": "plain.toml",
+          "ignored": false
+        },
+        {
+          "path": "sub/plain.toml",
+          "ignored": false
+        },
+        {
+          "path": "sub/inner/plain.toml",
+          "ignored": false
+        },
+        {
+          "path": "mod.pyc",
+          "ignored": true
+        },
+        {
+          "path": "pkg/mod.pyo",
+          "ignored": true
+        },
+        {
+          "path": "pkg/mod.py",
+          "ignored": false
+        },
+        {
+          "path": "pkg/mod.pyd",
+          "ignored": true
+        }
+      ]
+    }
+  ]
+}

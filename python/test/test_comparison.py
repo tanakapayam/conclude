@@ -1,4 +1,4 @@
-"""Guards for docs/comparison.md: it says when it was verified, its
+"""Guards for docs/python/comparison.md: it says when it was verified, its
 tables are well-formed, the README points at it, and everything it
 claims about conclude itself is backed by the code."""
 
@@ -13,11 +13,19 @@ import pytest
 import conclude
 from conclude import App
 
-ROOT = Path(__file__).resolve().parent.parent
-COMPARISON = ROOT / "docs" / "comparison.md"
-GUIDE = ROOT / "docs" / "guide.md"
-README = ROOT / "README.md"
-PYPROJECT = ROOT / "pyproject.toml"
+PACKAGE_ROOT = Path(__file__).resolve().parent.parent  # python/
+# In a git checkout, docs/ is a sibling of python/, one level up, and this
+# package's own docs live under docs/python/. In a built sdist -- or an
+# install from one -- everything was flattened in alongside this package
+# instead (see hatch_build.py): one level less deep, and with no separate
+# "python" segment (its docs/python/*.md become the sdist's docs/*.md).
+IN_CHECKOUT = (PACKAGE_ROOT.parent / "spec").is_dir()
+REPO_ROOT = PACKAGE_ROOT.parent if IN_CHECKOUT else PACKAGE_ROOT
+DOCS_DIR = REPO_ROOT / "docs" / "python" if IN_CHECKOUT else REPO_ROOT / "docs"
+COMPARISON = DOCS_DIR / "comparison.md"
+GUIDE = DOCS_DIR / "guide.md"
+README = PACKAGE_ROOT / "README.md"
+PYPROJECT = PACKAGE_ROOT / "pyproject.toml"
 BASE_URL = "https://github.com/tanakapayam/conclude/blob/main/"
 
 COMPARED = ["ConfigArgParse", "jsonargparse", "pydantic-settings", "Dynaconf", "python-decouple"]
@@ -95,7 +103,7 @@ def test_the_zero_dependency_claim_matches_pyproject():
 
 
 def test_the_readme_links_to_the_comparison():
-    assert f"{BASE_URL}docs/comparison.md" in read(README)
+    assert f"{BASE_URL}docs/python/comparison.md" in read(README)
 
 
 def test_the_readme_table_names_every_compared_library():

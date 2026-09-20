@@ -1,0 +1,239 @@
+{
+  "spec_version": 1,
+  "description": "The .env dialect: `text` is the file's content (UTF-8, byte-order mark allowed); `expect` is the parsed variables.",
+  "cases": [
+    {
+      "name": "simple pairs",
+      "text": "A=1\nB=two\n",
+      "expect": {
+        "A": "1",
+        "B": "two"
+      }
+    },
+    {
+      "name": "export prefix is ignored",
+      "text": "export A=1\n",
+      "expect": {
+        "A": "1"
+      }
+    },
+    {
+      "name": "extra spaces after export",
+      "text": "export   A=1\n",
+      "expect": {
+        "A": "1"
+      }
+    },
+    {
+      "name": "comments and blank lines are skipped",
+      "text": "# c\n\nA=1\n   # indented comment\n",
+      "expect": {
+        "A": "1"
+      }
+    },
+    {
+      "name": "lines without an equals sign are skipped",
+      "text": "JUNK\nA=1\nexport B\n",
+      "expect": {
+        "A": "1"
+      }
+    },
+    {
+      "name": "whitespace around key and value is trimmed",
+      "text": " A = 1 \n",
+      "expect": {
+        "A": "1"
+      }
+    },
+    {
+      "name": "tabs around the value are trimmed",
+      "text": "A=\tvalue\t\n",
+      "expect": {
+        "A": "value"
+      }
+    },
+    {
+      "name": "empty value",
+      "text": "A=\n",
+      "expect": {
+        "A": ""
+      }
+    },
+    {
+      "name": "only the first equals sign splits",
+      "text": "A=b=c\n",
+      "expect": {
+        "A": "b=c"
+      }
+    },
+    {
+      "name": "a later duplicate wins",
+      "text": "A=1\nA=2\n",
+      "expect": {
+        "A": "2"
+      }
+    },
+    {
+      "name": "inline comments are not supported",
+      "text": "A=1 # not a comment\n",
+      "expect": {
+        "A": "1 # not a comment"
+      }
+    },
+    {
+      "name": "hash inside an unquoted value",
+      "text": "A=x#y\n",
+      "expect": {
+        "A": "x#y"
+      }
+    },
+    {
+      "name": "interpolation is not supported",
+      "text": "A=${B}\n",
+      "expect": {
+        "A": "${B}"
+      }
+    },
+    {
+      "name": "export without a space is part of the key",
+      "text": "exportA=1\n",
+      "expect": {
+        "exportA": "1"
+      }
+    },
+    {
+      "name": "single quotes are taken literally",
+      "text": "A='x y\\n z'\n",
+      "expect": {
+        "A": "x y\\n z"
+      }
+    },
+    {
+      "name": "single-quoted empty string",
+      "text": "A=''\n",
+      "expect": {
+        "A": ""
+      }
+    },
+    {
+      "name": "double-quoted empty string",
+      "text": "A=\"\"\n",
+      "expect": {
+        "A": ""
+      }
+    },
+    {
+      "name": "double quotes decode \\n",
+      "text": "A=\"line1\\nline2\"\n",
+      "expect": {
+        "A": "line1\nline2"
+      }
+    },
+    {
+      "name": "double quotes decode \\t",
+      "text": "A=\"x\\ty\"\n",
+      "expect": {
+        "A": "x\ty"
+      }
+    },
+    {
+      "name": "double quotes decode \\r",
+      "text": "A=\"x\\ry\"\n",
+      "expect": {
+        "A": "x\ry"
+      }
+    },
+    {
+      "name": "double quotes decode an escaped quote",
+      "text": "A=\"say \\\"hi\\\"\"\n",
+      "expect": {
+        "A": "say \"hi\""
+      }
+    },
+    {
+      "name": "double quotes decode an escaped backslash",
+      "text": "A=\"back\\\\slash\"\n",
+      "expect": {
+        "A": "back\\slash"
+      }
+    },
+    {
+      "name": "an unknown escape is left alone",
+      "text": "A=\"\\d\"\n",
+      "expect": {
+        "A": "\\d"
+      }
+    },
+    {
+      "name": "a hash inside quotes is data",
+      "text": "A=\"x#y\"\n",
+      "expect": {
+        "A": "x#y"
+      }
+    },
+    {
+      "name": "quotes are stripped after trimming",
+      "text": "A=  \"x\"  \n",
+      "expect": {
+        "A": "x"
+      }
+    },
+    {
+      "name": "a lone opening quote is kept",
+      "text": "A=\"x\n",
+      "expect": {
+        "A": "\"x"
+      }
+    },
+    {
+      "name": "mismatched quotes are kept",
+      "text": "A='x\"\n",
+      "expect": {
+        "A": "'x\""
+      }
+    },
+    {
+      "name": "a single quote character is kept",
+      "text": "A=\"\n",
+      "expect": {
+        "A": "\""
+      }
+    },
+    {
+      "name": "a leading byte-order mark is ignored",
+      "text": "﻿A=1\nB=2\n",
+      "expect": {
+        "A": "1",
+        "B": "2"
+      }
+    },
+    {
+      "name": "Windows line endings",
+      "text": "A=1\r\nB=2\r\n",
+      "expect": {
+        "A": "1",
+        "B": "2"
+      }
+    },
+    {
+      "name": "non-ASCII text",
+      "text": "NAME=café\nE='🎉'\n",
+      "expect": {
+        "NAME": "café",
+        "E": "🎉"
+      }
+    },
+    {
+      "name": "non-ASCII in double quotes",
+      "text": "NAME=\"日本語\\n\"\n",
+      "expect": {
+        "NAME": "日本語\n"
+      }
+    },
+    {
+      "name": "empty file",
+      "text": "",
+      "expect": {}
+    }
+  ]
+}

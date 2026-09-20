@@ -1,17 +1,8 @@
-name: Publish
+name: Python Publish
 
-# One-time setup, before the first run:
-#   1. On https://pypi.org (and https://test.pypi.org), add a trusted publisher
-#      for the project `conclude`: this repository, workflow `publish.yml`,
-#      environment `pypi` (`testpypi` on TestPyPI). For a project that doesn't
-#      exist yet, use "Publishing" -> "Add a new pending publisher".
-#   2. In this repository's Settings -> Environments, create `pypi` and
-#      `testpypi`. Put required reviewers on `pypi` to make a real release
-#      wait for an explicit approval.
-#
-# Then:
-#   - A dry run: Actions -> Publish -> Run workflow -> target `testpypi`.
-#   - A release: publish a GitHub Release whose tag is `v<version>`.
+# Publishes the conclude package to PyPI. See python/RELEASING.md for the one-time
+# setup (environments, trusted publisher -- which is matched by this workflow's
+# *filename*, `python-publish.yml`) and the release process.
 
 on:
   release:
@@ -27,10 +18,16 @@ on:
 permissions:
   contents: read
 
+defaults:
+  run:
+    working-directory: python
+
 jobs:
   ci:
     name: CI
-    uses: ./.github/workflows/ci.yml
+    # A release of the Node package (tag node-v*) is not ours.
+    if: github.event_name != 'release' || !startsWith(github.event.release.tag_name, 'node-v')
+    uses: ./.github/workflows/python-ci.yml
 
   build:
     name: Build the distributions
@@ -57,27 +54,27 @@ jobs:
           TAG: ${{ github.event.release.tag_name }}
           VERSION: ${{ steps.version.outputs.version }}
         run: |
-          if [ -n "$TAG" ] && [ "$TAG" != "v$VERSION" ]; then
-            echo "::error::The release tag $TAG does not match the package version v$VERSION."
+          if [ "$TAG" != "python-v$VERSION" ]; then
+            echo "::error::The release tag $TAG does not match the package version (python-v$VERSION)."
             exit 1
           fi
           if ! grep -q "^## \[$VERSION\]" CHANGELOG.md; then
-            echo "::error::CHANGELOG.md has no entry for $VERSION."
+            echo "::error::python/CHANGELOG.md has no entry for $VERSION."
             exit 1
           fi
           if grep -q "^## \[$VERSION\] - Unreleased" CHANGELOG.md; then
-            echo "::error::CHANGELOG.md still marks $VERSION as Unreleased; put the date on it."
+            echo "::error::python/CHANGELOG.md still marks $VERSION as Unreleased; put the date on it."
             exit 1
           fi
       - name: Build the sdist and wheel
-        run: uv build
+        run: uv build -o "$RUNNER_TEMP/dist"
       - name: twine check
-        run: uvx twine check --strict dist/*
+        run: uvx twine check --strict "$RUNNER_TEMP/dist"/*
       - name: Upload the distributions
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: dist
-          path: dist/
+          path: ${{ runner.temp }}/dist
           if-no-files-found: error
           retention-days: 7
 

@@ -14,11 +14,19 @@ import pytest
 import conclude
 from conclude import App
 
-ROOT = Path(__file__).resolve().parent.parent
-README = ROOT / "README.md"
-GUIDE = ROOT / "docs" / "guide.md"
-REFERENCE = ROOT / "docs" / "reference.md"
-CHANGELOG = ROOT / "CHANGELOG.md"
+PACKAGE_ROOT = Path(__file__).resolve().parent.parent  # python/
+# In a git checkout, docs/ is a sibling of python/, one level up, and this
+# package's own docs live under docs/python/. In a built sdist -- or an
+# install from one -- everything was flattened in alongside this package
+# instead (see hatch_build.py): one level less deep, and with no separate
+# "python" segment (its docs/python/*.md become the sdist's docs/*.md).
+IN_CHECKOUT = (PACKAGE_ROOT.parent / "spec").is_dir()
+REPO_ROOT = PACKAGE_ROOT.parent if IN_CHECKOUT else PACKAGE_ROOT
+DOCS_DIR = REPO_ROOT / "docs" / "python" if IN_CHECKOUT else REPO_ROOT / "docs"
+README = PACKAGE_ROOT / "README.md"
+GUIDE = DOCS_DIR / "guide.md"
+REFERENCE = DOCS_DIR / "reference.md"
+CHANGELOG = PACKAGE_ROOT / "CHANGELOG.md"
 DOCS = [README, GUIDE, REFERENCE]
 BASE_URL = "https://github.com/tanakapayam/conclude/blob/main/"
 
@@ -163,7 +171,10 @@ def test_reference_covers_every_public_app_member():
 
 def test_reference_lists_every_module():
     text = REFERENCE.read_text(encoding="utf-8")
-    modules = {p.stem for p in (ROOT / "src" / "conclude").glob("*.py")} - {"__init__", "app"}
+    modules = {p.stem for p in (PACKAGE_ROOT / "src" / "conclude").glob("*.py")} - {
+        "__init__",
+        "app",
+    }
     missing = sorted(m for m in modules if f"conclude.{m}" not in text)
     assert not missing
 
@@ -195,12 +206,16 @@ def resolve_link(source, target):
     or ``None`` for an external one."""
     target, _, anchor = target.partition("#")
     if target.startswith(BASE_URL):
-        return ROOT / target[len(BASE_URL) :], anchor
+        return REPO_ROOT / target[len(BASE_URL) :], anchor
     if target.startswith(("http://", "https://", "mailto:")):
         return None
     return (source.parent / target if target else source), anchor
 
 
+@pytest.mark.skipif(
+    not IN_CHECKOUT,
+    reason="link targets assume the git checkout's layout (docs/python/...), not the sdist's flattened one",
+)
 @pytest.mark.parametrize("path", DOCS, ids=lambda p: p.name)
 def test_links_resolve(path):
     for target in links(path):

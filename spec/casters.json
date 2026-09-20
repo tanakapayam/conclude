@@ -1,0 +1,438 @@
+{
+  "spec_version": 1,
+  "description": "Turning a raw value from any layer into a setting's declared type. `output: null` means unset; `error: true` means the cast fails.",
+  "cases": [
+    {
+      "name": "bool: 'true' is true",
+      "type": "bool",
+      "input": "true",
+      "output": true
+    },
+    {
+      "name": "bool: 'TRUE' is true",
+      "type": "bool",
+      "input": "TRUE",
+      "output": true
+    },
+    {
+      "name": "bool: 'True' is true",
+      "type": "bool",
+      "input": "True",
+      "output": true
+    },
+    {
+      "name": "bool: ' yes ' is true",
+      "type": "bool",
+      "input": " yes ",
+      "output": true
+    },
+    {
+      "name": "bool: 'on' is true",
+      "type": "bool",
+      "input": "on",
+      "output": true
+    },
+    {
+      "name": "bool: 'y' is true",
+      "type": "bool",
+      "input": "y",
+      "output": true
+    },
+    {
+      "name": "bool: 'Y' is true",
+      "type": "bool",
+      "input": "Y",
+      "output": true
+    },
+    {
+      "name": "bool: '1' is true",
+      "type": "bool",
+      "input": "1",
+      "output": true
+    },
+    {
+      "name": "bool: 'false' is false",
+      "type": "bool",
+      "input": "false",
+      "output": false
+    },
+    {
+      "name": "bool: 'FALSE' is false",
+      "type": "bool",
+      "input": "FALSE",
+      "output": false
+    },
+    {
+      "name": "bool: 'no' is false",
+      "type": "bool",
+      "input": "no",
+      "output": false
+    },
+    {
+      "name": "bool: ' off ' is false",
+      "type": "bool",
+      "input": " off ",
+      "output": false
+    },
+    {
+      "name": "bool: 'n' is false",
+      "type": "bool",
+      "input": "n",
+      "output": false
+    },
+    {
+      "name": "bool: '0' is false",
+      "type": "bool",
+      "input": "0",
+      "output": false
+    },
+    {
+      "name": "bool: empty string is false",
+      "type": "bool",
+      "input": "",
+      "output": false
+    },
+    {
+      "name": "bool: native true",
+      "type": "bool",
+      "input": true,
+      "output": true
+    },
+    {
+      "name": "bool: native false",
+      "type": "bool",
+      "input": false,
+      "output": false
+    },
+    {
+      "name": "bool: the number 1 is true",
+      "type": "bool",
+      "input": 1,
+      "output": true
+    },
+    {
+      "name": "bool: the number 0 is false",
+      "type": "bool",
+      "input": 0,
+      "output": false
+    },
+    {
+      "name": "bool: a typo is an error",
+      "type": "bool",
+      "input": "tru",
+      "error": true
+    },
+    {
+      "name": "bool: 2 is an error",
+      "type": "bool",
+      "input": "2",
+      "error": true
+    },
+    {
+      "name": "bool: the number 2 is an error",
+      "type": "bool",
+      "input": 2,
+      "error": true
+    },
+    {
+      "name": "bool: maybe is an error",
+      "type": "bool",
+      "input": "maybe",
+      "error": true
+    },
+    {
+      "name": "int: digits",
+      "type": "int",
+      "input": "5",
+      "output": 5
+    },
+    {
+      "name": "int: surrounding whitespace is trimmed",
+      "type": "int",
+      "input": " 5 ",
+      "output": 5
+    },
+    {
+      "name": "int: negative",
+      "type": "int",
+      "input": "-3",
+      "output": -3
+    },
+    {
+      "name": "int: native integer",
+      "type": "int",
+      "input": 5,
+      "output": 5
+    },
+    {
+      "name": "int: native whole number",
+      "type": "int",
+      "input": 5.0,
+      "output": 5
+    },
+    {
+      "name": "int: a redundant .0 is accepted",
+      "type": "int",
+      "input": "5.0",
+      "output": 5
+    },
+    {
+      "name": "int: a redundant .00 is accepted",
+      "type": "int",
+      "input": "5.00",
+      "output": 5
+    },
+    {
+      "name": "int: a fraction stays a fraction",
+      "type": "int",
+      "input": "1.5",
+      "output": 1.5
+    },
+    {
+      "name": "int: native fraction",
+      "type": "int",
+      "input": 1.5,
+      "output": 1.5
+    },
+    {
+      "name": "int: scientific notation",
+      "type": "int",
+      "input": "1e3",
+      "output": 1000
+    },
+    {
+      "name": "int: empty string is unset",
+      "type": "int",
+      "input": "",
+      "output": null
+    },
+    {
+      "name": "int: null is unset",
+      "type": "int",
+      "input": null,
+      "output": null
+    },
+    {
+      "name": "int: words are an error",
+      "type": "int",
+      "input": "abc",
+      "error": true
+    },
+    {
+      "name": "int: trailing junk is an error",
+      "type": "int",
+      "input": "5x",
+      "error": true
+    },
+    {
+      "name": "int: whitespace only is an error",
+      "type": "int",
+      "input": "  ",
+      "error": true
+    },
+    {
+      "name": "int: hexadecimal is an error",
+      "type": "int",
+      "input": "0x10",
+      "error": true
+    },
+    {
+      "name": "float: decimal",
+      "type": "float",
+      "input": "0.5",
+      "output": 0.5
+    },
+    {
+      "name": "float: whole number",
+      "type": "float",
+      "input": "5",
+      "output": 5
+    },
+    {
+      "name": "float: native",
+      "type": "float",
+      "input": 0.25,
+      "output": 0.25
+    },
+    {
+      "name": "float: exponent",
+      "type": "float",
+      "input": "1e-2",
+      "output": 0.01
+    },
+    {
+      "name": "float: leading dot",
+      "type": "float",
+      "input": ".5",
+      "output": 0.5
+    },
+    {
+      "name": "float: trailing dot",
+      "type": "float",
+      "input": "5.",
+      "output": 5
+    },
+    {
+      "name": "float: surrounding whitespace is trimmed",
+      "type": "float",
+      "input": " 2.5 ",
+      "output": 2.5
+    },
+    {
+      "name": "float: negative",
+      "type": "float",
+      "input": "-2.5",
+      "output": -2.5
+    },
+    {
+      "name": "float: empty string is unset",
+      "type": "float",
+      "input": "",
+      "output": null
+    },
+    {
+      "name": "float: null is unset",
+      "type": "float",
+      "input": null,
+      "output": null
+    },
+    {
+      "name": "float: words are an error",
+      "type": "float",
+      "input": "abc",
+      "error": true
+    },
+    {
+      "name": "float: whitespace only is an error",
+      "type": "float",
+      "input": "  ",
+      "error": true
+    },
+    {
+      "name": "float: hexadecimal is an error",
+      "type": "float",
+      "input": "0x10",
+      "error": true
+    },
+    {
+      "name": "str: kept as is",
+      "type": "str",
+      "input": "x",
+      "output": "x"
+    },
+    {
+      "name": "str: whitespace is kept",
+      "type": "str",
+      "input": " x ",
+      "output": " x "
+    },
+    {
+      "name": "str: empty string is unset",
+      "type": "str",
+      "input": "",
+      "output": null
+    },
+    {
+      "name": "str: null is unset",
+      "type": "str",
+      "input": null,
+      "output": null
+    },
+    {
+      "name": "str: a number becomes text",
+      "type": "str",
+      "input": 5,
+      "output": "5"
+    },
+    {
+      "name": "str: a fraction becomes text",
+      "type": "str",
+      "input": 1.5,
+      "output": "1.5"
+    },
+    {
+      "name": "list: comma separated",
+      "type": "list",
+      "input": "a,b",
+      "output": [
+        "a",
+        "b"
+      ]
+    },
+    {
+      "name": "list: items are trimmed",
+      "type": "list",
+      "input": " a , b ",
+      "output": [
+        "a",
+        "b"
+      ]
+    },
+    {
+      "name": "list: empty items are dropped",
+      "type": "list",
+      "input": "a,,b,",
+      "output": [
+        "a",
+        "b"
+      ]
+    },
+    {
+      "name": "list: a single item",
+      "type": "list",
+      "input": "single",
+      "output": [
+        "single"
+      ]
+    },
+    {
+      "name": "list: only separators is an empty list",
+      "type": "list",
+      "input": ",",
+      "output": []
+    },
+    {
+      "name": "list: empty string is unset",
+      "type": "list",
+      "input": "",
+      "output": null
+    },
+    {
+      "name": "list: null is unset",
+      "type": "list",
+      "input": null,
+      "output": null
+    },
+    {
+      "name": "list: native list is trimmed and filtered",
+      "type": "list",
+      "input": [
+        "a",
+        " b ",
+        ""
+      ],
+      "output": [
+        "a",
+        "b"
+      ]
+    },
+    {
+      "name": "list: native list items become text",
+      "type": "list",
+      "input": [
+        1,
+        2
+      ],
+      "output": [
+        "1",
+        "2"
+      ]
+    },
+    {
+      "name": "list: native empty list",
+      "type": "list",
+      "input": [],
+      "output": []
+    }
+  ]
+}

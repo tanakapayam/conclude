@@ -19,6 +19,12 @@ htmlcov/
 # Build artifacts
 build/
 dist/
+*.tgz
+*.tsbuildinfo
+
+# Node
+node_modules/
+.verdaccio-storage/
 
 # Virtual environments
 .venv/
