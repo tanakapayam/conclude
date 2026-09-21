@@ -8,6 +8,8 @@ import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
+import { checkInstalled } from "./registry.mjs";
+
 const npm = process.platform === "win32" ? "npm.cmd" : "npm";
 const run = (command, args, options = {}) =>
   execFileSync(command, args, { encoding: "utf8", stdio: ["ignore", "pipe", "inherit"], ...options });
@@ -36,27 +38,9 @@ try {
   writeFileSync(join(project, "package.json"), JSON.stringify({ name: "smoke", private: true, type: "module" }));
   run(npm, ["install", join(scratch, packed.filename), "--no-audit", "--no-fund"], { cwd: project });
 
-  const esm = `
-    import { defineConfig, formatEnv, resolve, envVarName, int } from "@tanakapayam/conclude";
-    const settings = [{ key: "port", type: "int", default: 8080 }, { key: "debug", type: "bool", default: false }];
-    const resolved = resolve(settings, { env: { port: "9000" }, cli: { debug: true } });
-    if (resolved.port !== 9000 || resolved.debug !== true) throw new Error("resolve() gave " + JSON.stringify(resolved));
-    if (envVarName("my-app", "foo_bar") !== "MY_APP_FOO_BAR") throw new Error("envVarName");
-    if (!formatEnv(settings, { appName: "myapp" }).startsWith("MYAPP_PORT=8080")) throw new Error("formatEnv");
-    const config = defineConfig({ name: "myapp", settings: { retryLimit: int(3), debug: false }, userConfigPath: null, projectConfigPath: null });
-    const out = config.resolve({ environ: { MYAPP_RETRY_LIMIT: "5" }, cli: { debug: true } });
-    if (out.retryLimit !== 5 || out.debug !== true) throw new Error("defineConfig().resolve() gave " + JSON.stringify(out));
-    console.log("ESM import ok");
-  `;
-  console.log(run(process.execPath, ["--input-type=module", "-e", esm], { cwd: project }).trim());
-
-  const cjs = `
-    const { resolve } = require("@tanakapayam/conclude");
-    const out = resolve([{ key: "n", type: "int", default: 1 }], { env: { n: "2" } });
-    if (out.n !== 2) throw new Error("require() gave " + JSON.stringify(out));
-    console.log("CommonJS require ok");
-  `;
-  console.log(run(process.execPath, ["-e", cjs], { cwd: project }).trim());
+  checkInstalled(project, "@tanakapayam/conclude");
+  console.log("ESM import ok");
+  console.log("CommonJS require ok");
 
   // 3. The gitignore check: a setup error without `ignore`, working with it.
   const repo = join(scratch, "repo");

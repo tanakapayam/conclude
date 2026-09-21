@@ -49,7 +49,12 @@ SHIPPED = [
     "node/LICENSE",
     "node/README.md",
     "node/package-lock.json",
+    "node/RELEASING.md",
     "node/package.json",
+    "node/scripts/registry.mjs",
+    "node/scripts/rehearse.mjs",
+    "node/scripts/smoke.mjs",
+    "node/scripts/verdaccio.yaml",
     "node/src/define.ts",
     "node/src/index.ts",
     "node/src/invocation.ts",
@@ -81,6 +86,7 @@ GENERATED = [
     "htmlcov/index.html",
     "node/dist/index.js",
     "node/dist/index.d.ts",
+    "node/.verdaccio-storage/htpasswd",
     "node/node_modules/smol-toml/package.json",
     "node/tsconfig.tsbuildinfo",
     "tanakapayam-conclude-0.1.0.tgz",
@@ -242,6 +248,13 @@ NODE_CI = WORKFLOWS / "node-ci.yml"
 NODE_PUBLISH = WORKFLOWS / "node-publish.yml"
 
 
+def job_blocks(workflow):
+    """``{job name: its text}`` for the top-level jobs of a workflow, in order."""
+    body = workflow.split("\njobs:\n", 1)[1]
+    parts = re.split(r"^  ([A-Za-z0-9_-]+):\n", body, flags=re.M)
+    return dict(zip(parts[1::2], parts[2::2], strict=True))
+
+
 @pytest.mark.skipif(not NODE.is_dir(), reason="there is no node/ package in this checkout")
 class TestNodePackage:
     def test_its_license_is_a_copy_of_the_root_license(self):
@@ -271,14 +284,15 @@ class TestNodePackage:
         assert "uses: ./.github/workflows/node-ci.yml" in publish
         assert re.search(r"needs:\s*ci\b", publish)
 
-    def test_publishing_uses_trusted_publishing_and_defaults_to_a_dry_run(self):
+    def test_publishing_uses_trusted_publishing_and_a_rehearsal_is_the_default(self):
         publish = NODE_PUBLISH.read_text(encoding="utf-8")
-        assert "id-token: write" in publish and "--provenance" in publish
-        assert "NPM_TOKEN" not in publish and "secrets." not in publish
-        assert re.search(r"name:\s*npm\b", publish)
-        assert re.search(r"dry_run:.*?default:\s*true", publish, re.S)
+        assert "--provenance" in publish
+        assert "NPM_TOKEN" not in publish
+        # The only secret in play is the workflow's own token, for GitHub Packages.
+        assert set(re.findall(r"secrets\.(\w+)", publish)) <= {"GITHUB_TOKEN"}
+        assert re.search(r"mode:.*?default:\s*dry-run", publish, re.S)
         top_level = publish.split("\njobs:", 1)[0]
-        assert "id-token" not in top_level
+        assert "id-token" not in top_level and "packages: write" not in top_level
         assert "id-token" not in NODE_CI.read_text(encoding="utf-8")
 
     def test_each_language_ignores_the_other_languages_releases(self):
@@ -295,6 +309,37 @@ class TestNodePackage:
         if not package.get("private"):
             changelog = (NODE / "CHANGELOG.md").read_text(encoding="utf-8")
             assert f"## [{package['version']}]" in changelog
+
+    def test_publishing_stages_first_and_production_waits_behind_an_approval_gate(self):
+        publish = NODE_PUBLISH.read_text(encoding="utf-8")
+        jobs = job_blocks(publish)
+        assert list(jobs) == ["ci", "build", "stage", "production"]
+        stage, production = jobs["stage"], jobs["production"]
+
+        # Staging: GitHub Packages, its own environment, and nothing that can publish to npm.
+        assert re.search(r"needs:\s*build\b", stage)
+        assert "npm.pkg.github.com" in stage and "packages: write" in stage
+        assert re.search(r"name:\s*npm-staging\b", stage)
+        assert "id-token" not in stage and "--provenance" not in stage
+
+        # Production: after staging, release-only, behind the `npm` environment (the approval gate).
+        assert re.search(r"needs:\s*\[build,\s*stage\]", production)
+        assert re.search(r"^\s+if:\s*github\.event_name == 'release'\s*$", production, re.M)
+        assert re.search(r"environment:\s*\n\s+name:\s*npm\s*\n", production)
+        assert "id-token: write" in production and "--provenance" in production
+        assert "npm.pkg.github.com" not in production and "packages: write" not in production
+
+        # ...and it publishes the tarball that was staged, after checking it is that tarball.
+        assert "needs.stage.outputs.integrity" in production
+        assert '"$local" != "$STAGED"' in production and '"$local" != "$BUILT"' in production
+        assert re.search(r"npm publish .*\$TARBALL", production)
+        assert "--expect-provenance" in production
+
+    def test_the_release_pipeline_is_rehearsed_against_a_local_registry_in_ci(self):
+        ci = NODE_CI.read_text(encoding="utf-8")
+        assert "npm run rehearse" in ci and re.search(r"verdaccio@\d+\.\d+\.\d+", ci)
+        for script in ["registry.mjs", "rehearse.mjs", "verdaccio.yaml"]:
+            assert (NODE / "scripts" / script).exists(), script
 
 
 def sdist_guard_pattern():

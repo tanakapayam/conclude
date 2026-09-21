@@ -75,3 +75,34 @@ jobs:
         run: npm ci
       - name: Build, pack, install the tarball elsewhere, and check it
         run: npm run smoke
+
+  rehearsal:
+    name: staging rehearsal (local registry)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - name: Check out
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Set up Node 24
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: "24"
+          cache: npm
+          cache-dependency-path: node/package-lock.json
+      - name: Install
+        run: npm ci
+      - name: Start a local registry (Verdaccio), standing in for GitHub Packages
+        run: |
+          nohup npx --yes verdaccio@6.10.4 --config scripts/verdaccio.yaml --listen 127.0.0.1:4873 > "$RUNNER_TEMP/verdaccio.log" 2>&1 &
+          for _ in $(seq 1 60); do
+            if curl -sf http://127.0.0.1:4873/-/ping > /dev/null; then exit 0; fi
+            sleep 1
+          done
+          cat "$RUNNER_TEMP/verdaccio.log"
+          exit 1
+      - name: Rehearse the staging steps (publish, re-run, refuse a changed tarball, install back)
+        run: npm run rehearse
+        env:
+          REHEARSAL_REGISTRY: http://127.0.0.1:4873

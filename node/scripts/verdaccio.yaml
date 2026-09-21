@@ -1,0 +1,27 @@
+# A throwaway local registry for `npm run rehearse` (and the "staging rehearsal" CI job):
+# it stands in for GitHub Packages so the staging mechanics can be exercised offline.
+storage: ../.verdaccio-storage
+web:
+  enable: false
+auth:
+  htpasswd:
+    file: ../.verdaccio-storage/htpasswd
+uplinks:
+  npmjs:
+    url: https://registry.npmjs.org/
+packages:
+  # Staging is authoritative for our own scope: never fall through to the real npm
+  # (which would find the real published versions).
+  "@tanakapayam/*":
+    access: $all
+    publish: $all
+    unpublish: $all
+  # Everything else (smol-toml, ...) comes from npm.
+  "**":
+    access: $all
+    publish: $all
+    proxy: npmjs
+log:
+  type: stdout
+  format: pretty
+  level: warn
