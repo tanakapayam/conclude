@@ -1,0 +1,1241 @@
+{
+  "spec_version": 1,
+  "description": "Reproducing a resolved configuration as a standalone command line (`format_invocation` / `formatInvocation`). `resolved` is the settings by key; `options` are `prog` (the program name, written first), `always_include` and `skip` (keys), and `compare_defaults` (a complete map of what counts as each key's default; it replaces the declared defaults). A setting is written as `--flag=value` -- or a bare `--flag` for a boolean that is on -- unless it equals its default; a boolean that is off, and an unset value, are never written. Values are POSIX shell-quoted. `expect` is the whole command line.",
+  "cases": [
+    {
+      "name": "a run that matches the defaults writes nothing",
+      "settings": [
+        {
+          "key": "host",
+          "type": "str",
+          "default": "localhost"
+        },
+        {
+          "key": "port",
+          "type": "int",
+          "default": 8080
+        },
+        {
+          "key": "debug",
+          "type": "bool",
+          "default": false
+        },
+        {
+          "key": "tags",
+          "type": "list",
+          "default": null
+        },
+        {
+          "key": "ratio",
+          "type": "float",
+          "default": 0.5
+        },
+        {
+          "key": "filter_col",
+          "type": "str",
+          "default": null
+        }
+      ],
+      "resolved": {
+        "host": "localhost",
+        "port": 8080,
+        "debug": false,
+        "tags": null,
+        "ratio": 0.5,
+        "filter_col": null
+      },
+      "expect": ""
+    },
+    {
+      "name": "the program name alone",
+      "settings": [
+        {
+          "key": "host",
+          "type": "str",
+          "default": "localhost"
+        },
+        {
+          "key": "port",
+          "type": "int",
+          "default": 8080
+        },
+        {
+          "key": "debug",
+          "type": "bool",
+          "default": false
+        },
+        {
+          "key": "tags",
+          "type": "list",
+          "default": null
+        },
+        {
+          "key": "ratio",
+          "type": "float",
+          "default": 0.5
+        },
+        {
+          "key": "filter_col",
+          "type": "str",
+          "default": null
+        }
+      ],
+      "resolved": {
+        "host": "localhost",
+        "port": 8080,
+        "debug": false,
+        "tags": null,
+        "ratio": 0.5,
+        "filter_col": null
+      },
+      "options": {
+        "prog": "myapp"
+      },
+      "expect": "myapp"
+    },
+    {
+      "name": "only settings that differ from their default are written",
+      "settings": [
+        {
+          "key": "host",
+          "type": "str",
+          "default": "localhost"
+        },
+        {
+          "key": "port",
+          "type": "int",
+          "default": 8080
+        },
+        {
+          "key": "debug",
+          "type": "bool",
+          "default": false
+        },
+        {
+          "key": "tags",
+          "type": "list",
+          "default": null
+        },
+        {
+          "key": "ratio",
+          "type": "float",
+          "default": 0.5
+        },
+        {
+          "key": "filter_col",
+          "type": "str",
+          "default": null
+        }
+      ],
+      "resolved": {
+        "host": "localhost",
+        "port": 9000,
+        "debug": false,
+        "tags": null,
+        "ratio": 0.5,
+        "filter_col": null
+      },
+      "expect": "--port=9000"
+    },
+    {
+      "name": "a boolean that is on is a bare flag",
+      "settings": [
+        {
+          "key": "host",
+          "type": "str",
+          "default": "localhost"
+        },
+        {
+          "key": "port",
+          "type": "int",
+          "default": 8080
+        },
+        {
+          "key": "debug",
+          "type": "bool",
+          "default": false
+        },
+        {
+          "key": "tags",
+          "type": "list",
+          "default": null
+        },
+        {
+          "key": "ratio",
+          "type": "float",
+          "default": 0.5
+        },
+        {
+          "key": "filter_col",
+          "type": "str",
+          "default": null
+        }
+      ],
+      "resolved": {
+        "host": "localhost",
+        "port": 8080,
+        "debug": true,
+        "tags": null,
+        "ratio": 0.5,
+        "filter_col": null
+      },
+      "expect": "--debug"
+    },
+    {
+      "name": "a boolean that is off is never written, even when forced",
+      "settings": [
+        {
+          "key": "host",
+          "type": "str",
+          "default": "localhost"
+        },
+        {
+          "key": "port",
+          "type": "int",
+          "default": 8080
+        },
+        {
+          "key": "debug",
+          "type": "bool",
+          "default": false
+        },
+        {
+          "key": "tags",
+          "type": "list",
+          "default": null
+        },
+        {
+          "key": "ratio",
+          "type": "float",
+          "default": 0.5
+        },
+        {
+          "key": "filter_col",
+          "type": "str",
+          "default": null
+        }
+      ],
+      "resolved": {
+        "host": "localhost",
+        "port": 8080,
+        "debug": false,
+        "tags": null,
+        "ratio": 0.5,
+        "filter_col": null
+      },
+      "options": {
+        "always_include": [
+          "debug"
+        ]
+      },
+      "expect": ""
+    },
+    {
+      "name": "a list is comma-joined",
+      "settings": [
+        {
+          "key": "host",
+          "type": "str",
+          "default": "localhost"
+        },
+        {
+          "key": "port",
+          "type": "int",
+          "default": 8080
+        },
+        {
+          "key": "debug",
+          "type": "bool",
+          "default": false
+        },
+        {
+          "key": "tags",
+          "type": "list",
+          "default": null
+        },
+        {
+          "key": "ratio",
+          "type": "float",
+          "default": 0.5
+        },
+        {
+          "key": "filter_col",
+          "type": "str",
+          "default": null
+        }
+      ],
+      "resolved": {
+        "host": "localhost",
+        "port": 8080,
+        "debug": false,
+        "tags": [
+          "a",
+          "b"
+        ],
+        "ratio": 0.5,
+        "filter_col": null
+      },
+      "expect": "--tags=a,b"
+    },
+    {
+      "name": "flags follow declaration order, not the order of the resolved values",
+      "settings": [
+        {
+          "key": "host",
+          "type": "str",
+          "default": "localhost"
+        },
+        {
+          "key": "port",
+          "type": "int",
+          "default": 8080
+        },
+        {
+          "key": "debug",
+          "type": "bool",
+          "default": false
+        },
+        {
+          "key": "tags",
+          "type": "list",
+          "default": null
+        },
+        {
+          "key": "ratio",
+          "type": "float",
+          "default": 0.5
+        },
+        {
+          "key": "filter_col",
+          "type": "str",
+          "default": null
+        }
+      ],
+      "resolved": {
+        "host": "h",
+        "port": 9000,
+        "debug": true,
+        "tags": null,
+        "ratio": 0.5,
+        "filter_col": null
+      },
+      "expect": "--host=h --port=9000 --debug"
+    },
+    {
+      "name": "the program name comes first",
+      "settings": [
+        {
+          "key": "host",
+          "type": "str",
+          "default": "localhost"
+        },
+        {
+          "key": "port",
+          "type": "int",
+          "default": 8080
+        },
+        {
+          "key": "debug",
+          "type": "bool",
+          "default": false
+        },
+        {
+          "key": "tags",
+          "type": "list",
+          "default": null
+        },
+        {
+          "key": "ratio",
+          "type": "float",
+          "default": 0.5
+        },
+        {
+          "key": "filter_col",
+          "type": "str",
+          "default": null
+        }
+      ],
+      "resolved": {
+        "host": "localhost",
+        "port": 9000,
+        "debug": true,
+        "tags": null,
+        "ratio": 0.5,
+        "filter_col": null
+      },
+      "options": {
+        "prog": "myapp"
+      },
+      "expect": "myapp --port=9000 --debug"
+    },
+    {
+      "name": "an underscored key is a hyphenated flag",
+      "settings": [
+        {
+          "key": "host",
+          "type": "str",
+          "default": "localhost"
+        },
+        {
+          "key": "port",
+          "type": "int",
+          "default": 8080
+        },
+        {
+          "key": "debug",
+          "type": "bool",
+          "default": false
+        },
+        {
+          "key": "tags",
+          "type": "list",
+          "default": null
+        },
+        {
+          "key": "ratio",
+          "type": "float",
+          "default": 0.5
+        },
+        {
+          "key": "filter_col",
+          "type": "str",
+          "default": null
+        }
+      ],
+      "resolved": {
+        "host": "localhost",
+        "port": 8080,
+        "debug": false,
+        "tags": null,
+        "ratio": 0.5,
+        "filter_col": "x"
+      },
+      "expect": "--filter-col=x"
+    },
+    {
+      "name": "a setting with no default is written whenever it has a value",
+      "settings": [
+        {
+          "key": "host",
+          "type": "str",
+          "default": "localhost"
+        },
+        {
+          "key": "port",
+          "type": "int",
+          "default": 8080
+        },
+        {
+          "key": "debug",
+          "type": "bool",
+          "default": false
+        },
+        {
+          "key": "tags",
+          "type": "list",
+          "default": null
+        },
+        {
+          "key": "ratio",
+          "type": "float",
+          "default": 0.5
+        },
+        {
+          "key": "filter_col",
+          "type": "str",
+          "default": null
+        }
+      ],
+      "resolved": {
+        "host": "localhost",
+        "port": 8080,
+        "debug": false,
+        "tags": null,
+        "ratio": 0.5,
+        "filter_col": "x"
+      },
+      "expect": "--filter-col=x"
+    },
+    {
+      "name": "an unset setting is left out",
+      "settings": [
+        {
+          "key": "host",
+          "type": "str",
+          "default": "localhost"
+        },
+        {
+          "key": "port",
+          "type": "int",
+          "default": 8080
+        },
+        {
+          "key": "debug",
+          "type": "bool",
+          "default": false
+        },
+        {
+          "key": "tags",
+          "type": "list",
+          "default": null
+        },
+        {
+          "key": "ratio",
+          "type": "float",
+          "default": 0.5
+        },
+        {
+          "key": "filter_col",
+          "type": "str",
+          "default": null
+        }
+      ],
+      "resolved": {
+        "host": "localhost",
+        "port": 8080,
+        "debug": false,
+        "tags": null,
+        "ratio": 0.5,
+        "filter_col": null
+      },
+      "expect": ""
+    },
+    {
+      "name": "a number, negative",
+      "settings": [
+        {
+          "key": "host",
+          "type": "str",
+          "default": "localhost"
+        },
+        {
+          "key": "port",
+          "type": "int",
+          "default": 8080
+        },
+        {
+          "key": "debug",
+          "type": "bool",
+          "default": false
+        },
+        {
+          "key": "tags",
+          "type": "list",
+          "default": null
+        },
+        {
+          "key": "ratio",
+          "type": "float",
+          "default": 0.5
+        },
+        {
+          "key": "filter_col",
+          "type": "str",
+          "default": null
+        }
+      ],
+      "resolved": {
+        "host": "localhost",
+        "port": -5,
+        "debug": false,
+        "tags": null,
+        "ratio": 0.5,
+        "filter_col": null
+      },
+      "expect": "--port=-5"
+    },
+    {
+      "name": "a fraction",
+      "settings": [
+        {
+          "key": "host",
+          "type": "str",
+          "default": "localhost"
+        },
+        {
+          "key": "port",
+          "type": "int",
+          "default": 8080
+        },
+        {
+          "key": "debug",
+          "type": "bool",
+          "default": false
+        },
+        {
+          "key": "tags",
+          "type": "list",
+          "default": null
+        },
+        {
+          "key": "ratio",
+          "type": "float",
+          "default": 0.5
+        },
+        {
+          "key": "filter_col",
+          "type": "str",
+          "default": null
+        }
+      ],
+      "resolved": {
+        "host": "localhost",
+        "port": 8080,
+        "debug": false,
+        "tags": null,
+        "ratio": 0.25,
+        "filter_col": null
+      },
+      "expect": "--ratio=0.25"
+    },
+    {
+      "name": "a whole float keeps its decimal point",
+      "settings": [
+        {
+          "key": "host",
+          "type": "str",
+          "default": "localhost"
+        },
+        {
+          "key": "port",
+          "type": "int",
+          "default": 8080
+        },
+        {
+          "key": "debug",
+          "type": "bool",
+          "default": false
+        },
+        {
+          "key": "tags",
+          "type": "list",
+          "default": null
+        },
+        {
+          "key": "ratio",
+          "type": "float",
+          "default": 0.5
+        },
+        {
+          "key": "filter_col",
+          "type": "str",
+          "default": null
+        }
+      ],
+      "resolved": {
+        "host": "localhost",
+        "port": 8080,
+        "debug": false,
+        "tags": null,
+        "ratio": 3.0,
+        "filter_col": null
+      },
+      "expect": "--ratio=3.0"
+    },
+    {
+      "name": "a list equal to its default is left out",
+      "settings": [
+        {
+          "key": "tags",
+          "type": "list",
+          "default": [
+            "a"
+          ]
+        }
+      ],
+      "resolved": {
+        "tags": [
+          "a"
+        ]
+      },
+      "expect": ""
+    },
+    {
+      "name": "quoting: a space",
+      "settings": [
+        {
+          "key": "host",
+          "type": "str",
+          "default": "localhost"
+        },
+        {
+          "key": "port",
+          "type": "int",
+          "default": 8080
+        },
+        {
+          "key": "debug",
+          "type": "bool",
+          "default": false
+        },
+        {
+          "key": "tags",
+          "type": "list",
+          "default": null
+        },
+        {
+          "key": "ratio",
+          "type": "float",
+          "default": 0.5
+        },
+        {
+          "key": "filter_col",
+          "type": "str",
+          "default": null
+        }
+      ],
+      "resolved": {
+        "host": "a b",
+        "port": 8080,
+        "debug": false,
+        "tags": null,
+        "ratio": 0.5,
+        "filter_col": null
+      },
+      "expect": "--host='a b'"
+    },
+    {
+      "name": "quoting: a dollar sign",
+      "settings": [
+        {
+          "key": "host",
+          "type": "str",
+          "default": "localhost"
+        },
+        {
+          "key": "port",
+          "type": "int",
+          "default": 8080
+        },
+        {
+          "key": "debug",
+          "type": "bool",
+          "default": false
+        },
+        {
+          "key": "tags",
+          "type": "list",
+          "default": null
+        },
+        {
+          "key": "ratio",
+          "type": "float",
+          "default": 0.5
+        },
+        {
+          "key": "filter_col",
+          "type": "str",
+          "default": null
+        }
+      ],
+      "resolved": {
+        "host": "$HOME",
+        "port": 8080,
+        "debug": false,
+        "tags": null,
+        "ratio": 0.5,
+        "filter_col": null
+      },
+      "expect": "--host='$HOME'"
+    },
+    {
+      "name": "quoting: double quotes",
+      "settings": [
+        {
+          "key": "host",
+          "type": "str",
+          "default": "localhost"
+        },
+        {
+          "key": "port",
+          "type": "int",
+          "default": 8080
+        },
+        {
+          "key": "debug",
+          "type": "bool",
+          "default": false
+        },
+        {
+          "key": "tags",
+          "type": "list",
+          "default": null
+        },
+        {
+          "key": "ratio",
+          "type": "float",
+          "default": 0.5
+        },
+        {
+          "key": "filter_col",
+          "type": "str",
+          "default": null
+        }
+      ],
+      "resolved": {
+        "host": "say \"hi\"",
+        "port": 8080,
+        "debug": false,
+        "tags": null,
+        "ratio": 0.5,
+        "filter_col": null
+      },
+      "expect": "--host='say \"hi\"'"
+    },
+    {
+      "name": "quoting: an apostrophe",
+      "settings": [
+        {
+          "key": "host",
+          "type": "str",
+          "default": "localhost"
+        },
+        {
+          "key": "port",
+          "type": "int",
+          "default": 8080
+        },
+        {
+          "key": "debug",
+          "type": "bool",
+          "default": false
+        },
+        {
+          "key": "tags",
+          "type": "list",
+          "default": null
+        },
+        {
+          "key": "ratio",
+          "type": "float",
+          "default": 0.5
+        },
+        {
+          "key": "filter_col",
+          "type": "str",
+          "default": null
+        }
+      ],
+      "resolved": {
+        "host": "it's",
+        "port": 8080,
+        "debug": false,
+        "tags": null,
+        "ratio": 0.5,
+        "filter_col": null
+      },
+      "expect": "--host='it'\"'\"'s'"
+    },
+    {
+      "name": "quoting: a newline",
+      "settings": [
+        {
+          "key": "host",
+          "type": "str",
+          "default": "localhost"
+        },
+        {
+          "key": "port",
+          "type": "int",
+          "default": 8080
+        },
+        {
+          "key": "debug",
+          "type": "bool",
+          "default": false
+        },
+        {
+          "key": "tags",
+          "type": "list",
+          "default": null
+        },
+        {
+          "key": "ratio",
+          "type": "float",
+          "default": 0.5
+        },
+        {
+          "key": "filter_col",
+          "type": "str",
+          "default": null
+        }
+      ],
+      "resolved": {
+        "host": "a\nb",
+        "port": 8080,
+        "debug": false,
+        "tags": null,
+        "ratio": 0.5,
+        "filter_col": null
+      },
+      "expect": "--host='a\nb'"
+    },
+    {
+      "name": "quoting: a semicolon",
+      "settings": [
+        {
+          "key": "host",
+          "type": "str",
+          "default": "localhost"
+        },
+        {
+          "key": "port",
+          "type": "int",
+          "default": 8080
+        },
+        {
+          "key": "debug",
+          "type": "bool",
+          "default": false
+        },
+        {
+          "key": "tags",
+          "type": "list",
+          "default": null
+        },
+        {
+          "key": "ratio",
+          "type": "float",
+          "default": 0.5
+        },
+        {
+          "key": "filter_col",
+          "type": "str",
+          "default": null
+        }
+      ],
+      "resolved": {
+        "host": "a;b",
+        "port": 8080,
+        "debug": false,
+        "tags": null,
+        "ratio": 0.5,
+        "filter_col": null
+      },
+      "expect": "--host='a;b'"
+    },
+    {
+      "name": "quoting: non-ASCII letters are quoted",
+      "settings": [
+        {
+          "key": "host",
+          "type": "str",
+          "default": "localhost"
+        },
+        {
+          "key": "port",
+          "type": "int",
+          "default": 8080
+        },
+        {
+          "key": "debug",
+          "type": "bool",
+          "default": false
+        },
+        {
+          "key": "tags",
+          "type": "list",
+          "default": null
+        },
+        {
+          "key": "ratio",
+          "type": "float",
+          "default": 0.5
+        },
+        {
+          "key": "filter_col",
+          "type": "str",
+          "default": null
+        }
+      ],
+      "resolved": {
+        "host": "café",
+        "port": 8080,
+        "debug": false,
+        "tags": null,
+        "ratio": 0.5,
+        "filter_col": null
+      },
+      "expect": "--host='café'"
+    },
+    {
+      "name": "quoting: the safe punctuation stays bare",
+      "settings": [
+        {
+          "key": "host",
+          "type": "str",
+          "default": "localhost"
+        },
+        {
+          "key": "port",
+          "type": "int",
+          "default": 8080
+        },
+        {
+          "key": "debug",
+          "type": "bool",
+          "default": false
+        },
+        {
+          "key": "tags",
+          "type": "list",
+          "default": null
+        },
+        {
+          "key": "ratio",
+          "type": "float",
+          "default": 0.5
+        },
+        {
+          "key": "filter_col",
+          "type": "str",
+          "default": null
+        }
+      ],
+      "resolved": {
+        "host": "a/b:c@d%e+f,g-h.i=j_k",
+        "port": 8080,
+        "debug": false,
+        "tags": null,
+        "ratio": 0.5,
+        "filter_col": null
+      },
+      "expect": "--host=a/b:c@d%e+f,g-h.i=j_k"
+    },
+    {
+      "name": "quoting: a list whose text needs it",
+      "settings": [
+        {
+          "key": "host",
+          "type": "str",
+          "default": "localhost"
+        },
+        {
+          "key": "port",
+          "type": "int",
+          "default": 8080
+        },
+        {
+          "key": "debug",
+          "type": "bool",
+          "default": false
+        },
+        {
+          "key": "tags",
+          "type": "list",
+          "default": null
+        },
+        {
+          "key": "ratio",
+          "type": "float",
+          "default": 0.5
+        },
+        {
+          "key": "filter_col",
+          "type": "str",
+          "default": null
+        }
+      ],
+      "resolved": {
+        "host": "localhost",
+        "port": 8080,
+        "debug": false,
+        "tags": [
+          "a b",
+          "c"
+        ],
+        "ratio": 0.5,
+        "filter_col": null
+      },
+      "expect": "--tags='a b,c'"
+    },
+    {
+      "name": "always_include writes a setting that equals its default",
+      "settings": [
+        {
+          "key": "host",
+          "type": "str",
+          "default": "localhost"
+        },
+        {
+          "key": "port",
+          "type": "int",
+          "default": 8080
+        },
+        {
+          "key": "debug",
+          "type": "bool",
+          "default": false
+        },
+        {
+          "key": "tags",
+          "type": "list",
+          "default": null
+        },
+        {
+          "key": "ratio",
+          "type": "float",
+          "default": 0.5
+        },
+        {
+          "key": "filter_col",
+          "type": "str",
+          "default": null
+        }
+      ],
+      "resolved": {
+        "host": "localhost",
+        "port": 8080,
+        "debug": false,
+        "tags": null,
+        "ratio": 0.5,
+        "filter_col": null
+      },
+      "options": {
+        "always_include": [
+          "port"
+        ]
+      },
+      "expect": "--port=8080"
+    },
+    {
+      "name": "skip leaves a setting out",
+      "settings": [
+        {
+          "key": "host",
+          "type": "str",
+          "default": "localhost"
+        },
+        {
+          "key": "port",
+          "type": "int",
+          "default": 8080
+        },
+        {
+          "key": "debug",
+          "type": "bool",
+          "default": false
+        },
+        {
+          "key": "tags",
+          "type": "list",
+          "default": null
+        },
+        {
+          "key": "ratio",
+          "type": "float",
+          "default": 0.5
+        },
+        {
+          "key": "filter_col",
+          "type": "str",
+          "default": null
+        }
+      ],
+      "resolved": {
+        "host": "localhost",
+        "port": 9000,
+        "debug": true,
+        "tags": null,
+        "ratio": 0.5,
+        "filter_col": null
+      },
+      "options": {
+        "skip": [
+          "port"
+        ]
+      },
+      "expect": "--debug"
+    },
+    {
+      "name": "skip beats always_include",
+      "settings": [
+        {
+          "key": "host",
+          "type": "str",
+          "default": "localhost"
+        },
+        {
+          "key": "port",
+          "type": "int",
+          "default": 8080
+        },
+        {
+          "key": "debug",
+          "type": "bool",
+          "default": false
+        },
+        {
+          "key": "tags",
+          "type": "list",
+          "default": null
+        },
+        {
+          "key": "ratio",
+          "type": "float",
+          "default": 0.5
+        },
+        {
+          "key": "filter_col",
+          "type": "str",
+          "default": null
+        }
+      ],
+      "resolved": {
+        "host": "localhost",
+        "port": 9000,
+        "debug": false,
+        "tags": null,
+        "ratio": 0.5,
+        "filter_col": null
+      },
+      "options": {
+        "skip": [
+          "port"
+        ],
+        "always_include": [
+          "port"
+        ]
+      },
+      "expect": ""
+    },
+    {
+      "name": "compare_defaults replaces what counts as the default",
+      "settings": [
+        {
+          "key": "filter_col",
+          "type": "str",
+          "default": null
+        }
+      ],
+      "resolved": {
+        "filter_col": "x"
+      },
+      "options": {
+        "compare_defaults": {
+          "filter_col": "x"
+        }
+      },
+      "expect": ""
+    },
+    {
+      "name": "compare_defaults still writes a value that differs",
+      "settings": [
+        {
+          "key": "filter_col",
+          "type": "str",
+          "default": null
+        }
+      ],
+      "resolved": {
+        "filter_col": "y"
+      },
+      "options": {
+        "compare_defaults": {
+          "filter_col": "x"
+        }
+      },
+      "expect": "--filter-col=y"
+    }
+  ]
+}

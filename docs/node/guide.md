@@ -393,7 +393,53 @@ const settings = config.resolve({
 });
 ```
 
-## What is not here yet
+## 11. Reproducing a run
 
-The Python package's `--print-invocation` / `format_invocation()` (turn a
-resolved configuration back into a command line) has not been ported.
+`formatInvocation(resolved)` is the inverse of `resolve()`: given resolved
+settings, it renders a standalone command line that gets back to them with no
+environment variables, config files or shorthand -- handy for debugging a
+confusing setup, or turning one into a copy-pasteable command:
+
+```ts
+// run
+import { defineConfig, int, list, str } from "@tanakapayam/conclude";
+
+const config = defineConfig({
+  name: "remind",
+  settings: { message: str(), delay: int(0), channel: "email", repeat: false, tags: list() },
+  userConfigPath: null,
+  projectConfigPath: null,
+});
+
+const settings = config.resolve({
+  environ: { REMIND_MESSAGE: "stand up", REMIND_DELAY: "30", REMIND_REPEAT: "yes" },
+});
+console.log(config.formatInvocation(settings, { prog: "remind" }));
+```
+
+```
+remind --message='stand up' --delay=30 --repeat
+```
+
+A setting that equals its default is left out (omitting the flag already
+reproduces it), and so is a boolean that is off and anything unset; values are
+POSIX shell-quoted. `alwaysInclude` forces a setting that equals its default to
+be written, `skip` leaves one out (it beats `alwaysInclude`), and
+`compareDefaults` says what counts as a setting's default for this call -- for a
+setting whose real default is substituted after `resolve()`.
+
+The conventional way to expose it is a `--print-invocation` flag of your own:
+
+```ts
+const { cli, values } = config.parseArgs(process.argv.slice(2), {
+  options: { "print-invocation": { type: "boolean" } },
+});
+const settings = config.resolve({ cli });
+if (values["print-invocation"]) {
+  console.log(config.formatInvocation(settings, { prog: "remind" }));
+  process.exit(0);
+}
+```
+
+A boolean whose *default* is `true` cannot be reproduced this way -- there is no
+flag to turn a boolean off -- so give such a setting a flag of your own.

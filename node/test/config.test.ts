@@ -1,6 +1,7 @@
 /** The high-level API: defineConfig and everything hanging off it. */
 
 import assert from "node:assert/strict";
+import { spawnSync } from "node:child_process";
 import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { homedir, tmpdir } from "node:os";
 import { dirname, join } from "node:path";
@@ -448,5 +449,40 @@ describe("the command line", () => {
 
   test("an unknown flag is an error", () => {
     assert.throws(() => config.parseArgs(["--nope"]), { code: "ERR_PARSE_ARGS_UNKNOWN_OPTION" });
+  });
+});
+
+// --- reproducing a run --------------------------------------------------------------------------
+
+describe("formatInvocation", () => {
+  const config = defineConfig(isolated("t", { filterCol: str(), port: int(8080), debug: false, tags: list(), message: "hi" }));
+
+  test("uses the declared names, in declaration order, and only what differs", () => {
+    const resolved = config.resolve({ environ: { T_PORT: "9000", T_TAGS: "a b, c" }, cli: { filterCol: "x", debug: true } });
+    assert.equal(config.formatInvocation(resolved, { prog: "t" }), "t --filter-col=x --port=9000 --debug --tags='a b,c'");
+  });
+
+  test("there is nothing to write for a run that matches the defaults", () => {
+    assert.equal(config.formatInvocation(config.resolve({ environ: {} })), "");
+  });
+
+  test("options use the declared names", () => {
+    const resolved = config.resolve({ environ: { T_PORT: "9000" } });
+    assert.equal(config.formatInvocation(resolved, { skip: ["port"] }), "");
+    assert.equal(config.formatInvocation(resolved, { alwaysInclude: ["message"] }), "--port=9000 --message=hi");
+  });
+
+  test("compareDefaults is merged over the declared defaults", () => {
+    const resolved = config.resolve({ environ: {}, cli: { filterCol: "x" } });
+    assert.equal(config.formatInvocation(resolved, { compareDefaults: { filterCol: "x" } }), "");
+    assert.equal(config.formatInvocation(resolved, { compareDefaults: { port: 1 } }), "--filter-col=x --port=8080");
+  });
+
+  test("the output round-trips through a real shell: running it reproduces the settings", () => {
+    const original = config.resolve({ environ: { T_PORT: "9000", T_MESSAGE: "it's a $test" }, cli: { debug: true, tags: "a,b" } });
+    const line = config.formatInvocation(original);
+    // Let a real shell split the line, and hand the words to parseArgs.
+    const words = spawnSync("sh", ["-c", `for w in ${line}; do printf '%s\\0' "$w"; done`], { encoding: "utf8" }).stdout.split("\0").slice(0, -1);
+    assert.deepEqual(config.resolve({ environ: {}, cli: config.parseArgs(words).cli }), original);
   });
 });

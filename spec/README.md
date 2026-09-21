@@ -46,6 +46,7 @@ from the default) keeps the fixtures usable from a language where `3` and
 | `templates.json` | generated env, TOML and CLI templates | `app`, `settings`, optional `options`; `expect` (`env`, `toml`, `cli`) |
 | `gitignore.json` | whether gitignore rules match a path | `files`, `paths` (`path`, `ignored`) |
 | `guard.json` | the gitignore guard for a private file | `files`, `target`, optional `kill_switch_var` and `env`; `expect` (`active`, `reason`) |
+| `invocation.json` | reproducing a resolved configuration as a command line | `settings`, `resolved`, optional `options` (`prog`, `always_include`, `skip`, `compare_defaults`); `expect` (the command line) |
 | `sources.json` | the report of which sources are in play | `app`, `options` (the sources configured), `files`, optional `env`; `expect` (the whole report) |
 
 The top-level fields of each file, and the meaning of every option, are in

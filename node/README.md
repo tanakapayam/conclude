@@ -13,9 +13,8 @@ typed settings object.
 > conformance fixture in
 > [`spec/`](https://github.com/tanakapayam/conclude/blob/main/spec/README.md) -- the same fixtures the
 > [Python package](https://pypi.org/project/conclude/) passes -- but the API may still
-> change between minor versions. The one Python feature not ported yet is
-> `--print-invocation`. (0.1.0 was published without its build output and cannot be
-> imported; use 0.1.1 or newer.)
+> change between minor versions. (0.1.0 was published without its build output and
+> cannot be imported; use 0.1.1 or newer.)
 
 ```
 npm install @tanakapayam/conclude
@@ -60,7 +59,8 @@ The user and project config files are on by default; the system file, a `.env`
 fallback, and a private, gitignored developer file that beats the environment
 are opt-in. `config.describeSources()` reports which are in play, and
 `config.formatEnv()`, `formatToml()` and `formatCli()` generate templates from
-the same declaration.
+the same declaration, and `config.formatInvocation(settings)` turns resolved settings
+back into a command line.
 
 ## Documentation
 

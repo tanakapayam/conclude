@@ -61,6 +61,7 @@ the `snake_case` form used in config files, the environment and flags.
 | `formatEnv(options?)` | An environment-variable template with the defaults filled in. |
 | `formatToml(options?)` | A config-file template. |
 | `formatCli(options?)` | A CLI reference, one aligned line per flag. |
+| `formatInvocation(resolved, options?)` | A standalone command line that reproduces resolved settings (what a `--print-invocation` flag prints). |
 | `cliOptions()` | The derived flags in the shape `util.parseArgs` takes (`retryLimit` is `retry-limit`). |
 | `parseArgs(argv?, extra?)` | Parse arguments with `util.parseArgs`: the derived flags plus `extra.options`. |
 
@@ -77,7 +78,7 @@ The template methods take a `FormatOptions` (`skip`: settings to leave out;
 `defaults`: effective defaults to show instead), and `formatToml` also a
 `TomlFormatOptions` (`table`: a name, a path, or `[]` for none; `header`: `false`
 drops it), `formatCli` a `CliFormatOptions` (`metavars`: overrides, a list makes
-several). All of them use the declared names. `parseArgs` returns a `ParsedArgs`:
+several). All of them use the declared names. `formatInvocation` takes an `InvocationFormatOptions`: `prog` (the program name, written first), `alwaysInclude` (settings to write even when they equal their default), `skip` (settings to leave out; it beats `alwaysInclude`) and `compareDefaults` (effective defaults for this call, merged over the declared ones). `parseArgs` returns a `ParsedArgs`:
 `cli` (the setting flags that were given, by declared key), `values` (everything
 `util.parseArgs` parsed) and `positionals`.
 
@@ -120,6 +121,7 @@ canonical key.
 | Guard | `checkGuard(path, options)` with `GuardOptions` and `GuardResult`, `matchesGitIgnoreRules(root, target)` |
 | Rendering | `envValue`, `plainText`, `tomlKey`, `tomlString`, `tomlValue` |
 | Templates | `formatEnv(settings, options)`, `formatToml`, `formatCli`, with `TemplateOptions` |
+| Invocations | `formatInvocation(settings, resolved, options)` with `InvocationOptions` (its `compareDefaults` *replaces* the declared defaults), `shellQuote(text)` |
 
 The gitignore guard never runs `git`: `matchesGitIgnoreRules` evaluates the
 `.gitignore` files and `.git/info/exclude` itself, using the optional `ignore`

@@ -4,6 +4,15 @@ All notable changes to this package are documented in this file. The
 format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and the package adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.2.0] - 2026-09-21
+
+### Added
+
+- `config.formatInvocation(resolved, options?)` (and the building blocks
+  `formatInvocation` and `shellQuote`): a standalone command line that
+  reproduces resolved settings, for a `--print-invocation` flag. This was the
+  last Python feature not yet ported.
+
 ## [0.1.1] - 2026-09-21
 
 ### Fixed

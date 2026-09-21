@@ -113,7 +113,7 @@ describe("the reference", () => {
       const end = source.indexOf("\n}\n", start);
       return [...source.slice(start, end).matchAll(/^ {2}(?:readonly )?(\w+)[?(<:]/gm)].map((m) => m[1] ?? "");
     };
-    const members = [...body("ConfigOptions"), ...body("ResolveOptions"), ...body("Config"), ...body("ParsedArgs"), ...body("FormatOptions"), ...body("TomlFormatOptions"), ...body("CliFormatOptions")];
+    const members = [...body("ConfigOptions"), ...body("ResolveOptions"), ...body("Config"), ...body("ParsedArgs"), ...body("FormatOptions"), ...body("TomlFormatOptions"), ...body("CliFormatOptions"), ...body("InvocationFormatOptions")];
     assert.ok(members.length > 25);
     assert.deepEqual(members.filter((name) => !mentioned(name)), []);
   });

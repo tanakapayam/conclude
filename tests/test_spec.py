@@ -318,6 +318,20 @@ def test_guard(case, tmp_path, pathspec):
     assert (result.active, result.reason) == (case["expect"]["active"], case["expect"]["reason"])
 
 
+@pytest.mark.parametrize("case", cases("invocation.json"), ids=ids("invocation.json"))
+def test_invocation(case):
+    app = conclude.App(
+        "myapp", defaults_from(case["settings"]), config_home_path=None, config_cwd_path=None
+    )
+    options = case.get("options", {})
+    kwargs = {
+        key: options[key]
+        for key in ("prog", "always_include", "skip", "compare_defaults")
+        if key in options
+    }
+    assert app.format_invocation(case["resolved"], **kwargs) == case["expect"]
+
+
 @pytest.mark.parametrize("case", cases("sources.json"), ids=ids("sources.json"))
 def test_sources(case, tmp_path, pathspec):
     root = str(tmp_path)
@@ -362,6 +376,7 @@ FIXTURES = [
     "templates.json",
     "gitignore.json",
     "guard.json",
+    "invocation.json",
     "sources.json",
 ]
 

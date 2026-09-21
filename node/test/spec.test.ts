@@ -23,6 +23,7 @@ import {
   defineConfig,
   formatCli,
   formatEnv,
+  formatInvocation,
   formatToml,
   loadConfigFiles,
   loadDotenv,
@@ -286,6 +287,30 @@ describe("guard.json", () => {
   }
 });
 
+describe("invocation.json", () => {
+  interface Case {
+    name: string;
+    settings: Setting[];
+    resolved: Record<string, unknown>;
+    options?: { prog?: string; always_include?: string[]; skip?: string[]; compare_defaults?: Record<string, never> };
+    expect: string;
+  }
+  for (const c of load<Case>("invocation.json").cases) {
+    test(c.name, () => {
+      const o = c.options ?? {};
+      assert.equal(
+        formatInvocation(c.settings, c.resolved, {
+          ...(o.prog !== undefined ? { prog: o.prog } : {}),
+          ...(o.always_include ? { alwaysInclude: o.always_include } : {}),
+          ...(o.skip ? { skip: o.skip } : {}),
+          ...(o.compare_defaults ? { compareDefaults: o.compare_defaults } : {}),
+        }),
+        c.expect,
+      );
+    });
+  }
+});
+
 describe("sources.json", () => {
   interface Case {
     name: string;
@@ -338,6 +363,7 @@ describe("the fixture set", () => {
     "dotenv.json",
     "gitignore.json",
     "guard.json",
+    "invocation.json",
     "merge.json",
     "naming.json",
     "sources.json",

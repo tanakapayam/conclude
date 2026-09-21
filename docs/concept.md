@@ -251,7 +251,7 @@ reports say why. Two things are setup errors and raise: the missing matching
 capability (section 9), and an *active* file that is not valid TOML. Status
 and report calls never raise.
 
-## 11. Generated templates (`templates.json`)
+## 11. Generated templates and invocations (`templates.json`, `invocation.json`)
 
 Every template renders the same declared settings, in order, with their
 defaults; options can skip settings, replace a default with the *effective*
@@ -284,6 +284,23 @@ setting is the flag and `<METAVAR>` (the key upper-cased, or the override).
 Each line ends with `(default: text)`, where an unset default reads `none`,
 an empty text reads `""`, and the flag column is padded to the widest so the
 `(default:` parts align, with one space after it.
+
+**Reproducing a run.** The inverse of resolving: given a resolved configuration,
+a standalone command line that gets back to it with no environment variables,
+config files or shorthand -- what a `--print-invocation` flag prints. Settings
+are visited in declaration order, and each is written as `--flag=value` (a bare
+`--flag` for a `bool` that is on) unless it is left out. A setting is left out
+when it equals its default -- omitting a flag already reproduces its default, and
+this covers every setting automatically -- when it is a `bool` that is off (there
+is no flag to turn one off), when its value is unset, or when the caller skips it
+(`skip` beats `alwaysInclude`, which forces a setting that equals its default to
+be written). `compareDefaults` replaces what counts as each setting's default for
+one call, for a setting whose effective default is substituted after resolving.
+The program name, if given, comes first. Values are POSIX shell-quoted: bare if
+every character is a letter or digit from ASCII, or one of `_ @ % + = : , . / -`,
+otherwise in single quotes with each `'` written as `'"'"'` (so non-ASCII letters
+are quoted, and an empty text is `''`); a list is its items joined with `,`, then
+quoted; a `float` keeps its decimal point (`3.0`).
 
 ## 12. Reports (`sources.json`)
 
@@ -324,14 +341,14 @@ implementation writes a small adapter from a fixture file to its own API.
 | `config_layers.json` | 7 | merging system, user, project and sibling files; tables |
 | `config_tables.json` | 7 | table selection and the positional shorthand |
 | `templates.json` | 11 | the environment, TOML and CLI templates |
+| `invocation.json` | 11 | reproducing a resolved configuration as a command line |
 | `gitignore.json` | 9 | rule matching, judged by real `git` |
 | `guard.json` | 9 | the guard's checks and reasons |
 | `sources.json` | 10, 12 | the report of which sources are in play |
 
 Not yet covered by fixtures: how each binding reads its manifest (section 10;
-the wording of a `not configured` reason is binding-specific), the
-`--print-invocation` feature, and how a language exposes flags to its CLI
-parser.
+the wording of a `not configured` reason is binding-specific), and how a
+language exposes flags to its CLI parser.
 
 ## 14. What varies by language
 
@@ -371,6 +388,10 @@ and should document what they do:
 - line breaks other than `\n`, `\r\n` and `\r` in a `.env` file;
 - how a very small or very large `float` is written (exponent form) in a
   template;
+- reproducing a run for a `bool` whose default is true (there is no flag to turn
+  it off, so it cannot be reproduced), and for a non-`bool` setting whose
+  resolved value is unset while its default is not (Python writes `None`; the
+  TypeScript binding leaves it out);
 - a default of empty text on a `str` setting when it is *resolved* (the
   template shows it; the merge casts it to unset);
 - what a boolean, a list or another non-text value does when cast to `str`,

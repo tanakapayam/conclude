@@ -22,6 +22,7 @@ import { developerStatus, dotenvStatus, formatDeveloperStatus, formatDotenvStatu
 import type { DeveloperStatus, DotenvStatus } from "./local.ts";
 import { normalize } from "./settings.ts";
 import type { Declarations, Resolved } from "./settings.ts";
+import { formatInvocation } from "./invocation.ts";
 import { formatCli, formatEnv, formatToml } from "./templates.ts";
 import type { TemplateOptions } from "./templates.ts";
 import type { Layer, SettingValue } from "./types.ts";
@@ -88,6 +89,17 @@ export interface CliFormatOptions<S extends Declarations> extends FormatOptions<
   readonly metavars?: Readonly<Partial<Record<keyof S & string, string | readonly string[]>>>;
 }
 
+export interface InvocationFormatOptions<S extends Declarations> {
+  /** The program name, written first. */
+  readonly prog?: string;
+  /** Settings to write even when they equal their default. */
+  readonly alwaysInclude?: readonly (keyof S & string)[];
+  /** Settings to leave out entirely (this beats `alwaysInclude`). */
+  readonly skip?: readonly (keyof S & string)[];
+  /** Effective defaults for this call, merged over the declared ones -- for a setting whose real default is substituted after `resolve()`. */
+  readonly compareDefaults?: Readonly<Partial<Record<keyof S & string, SettingValue | null>>>;
+}
+
 export interface ParsedArgs<S extends Declarations> {
   /** The CLI layer: the setting flags that were given, by declared key. */
   readonly cli: Partial<Record<keyof S & string, unknown>>;
@@ -114,6 +126,8 @@ export interface Config<S extends Declarations> {
   formatToml(options?: TomlFormatOptions<S>): string;
   /** A CLI reference, one aligned line per flag. */
   formatCli(options?: CliFormatOptions<S>): string;
+  /** A standalone command line that reproduces resolved settings: what a `--print-invocation` flag prints. */
+  formatInvocation(resolved: Readonly<Partial<Record<keyof S & string, unknown>>>, options?: InvocationFormatOptions<S>): string;
   /** The derived flags in the shape `node:util`'s `parseArgs` takes (`filterCol` is `filter-col`). */
   cliOptions(): ParseArgsOptionsConfig;
   /** Parse arguments with `node:util`'s `parseArgs`: the derived flags plus any `extra` options. */
@@ -284,6 +298,21 @@ export function defineConfig<S extends Declarations>(options: ConfigOptions<S>):
     formatCli(format = {}) {
       const metavars = canonicalMap(format.metavars as Readonly<Record<string, string | readonly string[] | undefined>> | undefined);
       return formatCli(settings, { ...templateOptions(format), ...(metavars ? { metavars } : {}) });
+    },
+
+    formatInvocation(resolved, invocation = {}) {
+      const skip = canonicalList(invocation.skip);
+      const always = canonicalList(invocation.alwaysInclude);
+      const overrides = canonicalMap(invocation.compareDefaults as Readonly<Record<string, SettingValue | null | undefined>> | undefined);
+      const compareDefaults = overrides
+        ? { ...Object.fromEntries(settings.map((s) => [s.key, s.default ?? null])), ...overrides }
+        : undefined;
+      return formatInvocation(settings, toCanonical(resolved), {
+        ...(invocation.prog !== undefined ? { prog: invocation.prog } : {}),
+        ...(skip ? { skip } : {}),
+        ...(always ? { alwaysInclude: always } : {}),
+        ...(compareDefaults ? { compareDefaults } : {}),
+      });
     },
 
     cliOptions,
