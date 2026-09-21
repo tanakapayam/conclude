@@ -54,6 +54,7 @@ SHIPPED = [
     "node/src/index.ts",
     "node/test/config.test.ts",
     "node/test/docs.test.ts",
+    "node/test/package.test.ts",
     "node/test/spec.test.ts",
     "pyproject.toml",
     "spec/README.md",
@@ -292,3 +293,51 @@ class TestNodePackage:
         if not package.get("private"):
             changelog = (NODE / "CHANGELOG.md").read_text(encoding="utf-8")
             assert f"## [{package['version']}]" in changelog
+
+
+def sdist_guard_pattern():
+    """The ERE the `Check what the sdist contains` step greps for, as written in ci.yml."""
+    text = CI.read_text(encoding="utf-8")
+    step = text[text.index("Check what the sdist contains") :]
+    match = re.search(r"sed -E '[^']*' \| grep -E '([^']+)'", step)
+    assert match, "the sdist step must strip the top-level directory and grep for plumbing"
+    return re.compile(match.group(1))
+
+
+def flagged(pattern, entry):
+    return bool(pattern.search(re.sub(r"^[^/]+/", "", entry)))  # what `sed -E 's#^[^/]+/##'` does
+
+
+@pytest.mark.parametrize(
+    "entry",
+    [
+        "conclude-1.0.1/node/package.json",
+        "conclude-1.0.1/node/src/index.ts",
+        "conclude-1.0.1/uv.lock",
+        "conclude-1.0.1/.github/workflows/ci.yml",
+        "conclude-1.0.1/.venv/bin/python",
+        "conclude-1.0.1/.venv-plain/bin/python",
+        "conclude-1.0.1/src/conclude/__pycache__/app.cpython-312.pyc",
+        "conclude-1.0.1/tests/__pycache__/x.pyc",
+    ],
+)
+def test_the_sdist_guard_flags_repository_plumbing(entry):
+    assert flagged(sdist_guard_pattern(), entry), entry
+
+
+@pytest.mark.parametrize(
+    "entry",
+    [
+        "conclude-1.0.1/docs/node/guide.md",  # documentation for the Node package: ships in the sdist
+        "conclude-1.0.1/docs/node/reference.md",
+        "conclude-1.0.1/docs/guide.md",
+        "conclude-1.0.1/spec/naming.json",
+        "conclude-1.0.1/src/conclude/py.typed",
+        "conclude-1.0.1/tests/test_docs.py",
+        "conclude-1.0.1/CHANGELOG.md",
+        "conclude-1.0.1/PKG-INFO",
+        "conclude-1.0.1/pyproject.toml",
+    ],
+)
+def test_the_sdist_guard_leaves_shipped_files_alone(entry):
+    assert not flagged(sdist_guard_pattern(), entry), entry

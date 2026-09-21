@@ -9,12 +9,18 @@ its own copy of the default. conclude has you write it once: declare your
 settings as defaults, and it derives the rest and resolves every layer into one
 typed settings object.
 
-> **Status: pre-release (0.1.0, not yet published).** The package is complete
-> enough to use and passes every conformance fixture in
+> **Status: early (0.x).** The package is complete enough to use and passes every
+> conformance fixture in
 > [`spec/`](https://github.com/tanakapayam/conclude/blob/main/spec/README.md) -- the same fixtures the
-> [Python package](https://pypi.org/project/conclude/) passes -- but it stays
-> `private` until the API has settled. The one Python feature not ported yet is
-> `--print-invocation`.
+> [Python package](https://pypi.org/project/conclude/) passes -- but the API may still
+> change between minor versions. The one Python feature not ported yet is
+> `--print-invocation`. (0.1.0 was published without its build output and cannot be
+> imported; use 0.1.1 or newer.)
+
+```
+npm install @tanakapayam/conclude
+npm install ignore   # optional: only for the gitignore check (developer file, strict .env)
+```
 
 ```ts
 import { defineConfig, int, list } from "@tanakapayam/conclude";

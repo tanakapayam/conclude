@@ -14,7 +14,9 @@ const run = (command, args, options = {}) =>
 
 const scratch = mkdtempSync(join(tmpdir(), "conclude-smoke-"));
 try {
-  // 1. What ships.
+  // 1. What ships. Start with no build output at all: packing must build it itself (the
+  //    `prepack` script), because `npm publish` from a fresh checkout runs nothing else.
+  rmSync("dist", { recursive: true, force: true });
   const [packed] = JSON.parse(run(npm, ["pack", "--json", "--pack-destination", scratch]));
   const shipped = packed.files.map((file) => file.path);
   for (const path of shipped) {

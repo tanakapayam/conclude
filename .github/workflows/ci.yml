@@ -107,7 +107,9 @@ jobs:
         run: uvx twine check --strict dist/*
       - name: Check what the sdist contains
         run: |
-          if tar -tzf dist/*.tar.gz | grep -E '/(uv\.lock|\.github/|node/|\.venv[^/]*/|__pycache__/)'; then
+          # Entries look like conclude-1.0.1/<path>: drop that prefix, then flag repository
+          # plumbing at the top level only (docs/node/ is documentation and does ship).
+          if tar -tzf dist/*.tar.gz | sed -E 's#^[^/]+/##' | grep -E '^(uv\.lock|\.github/|node/)|(^|/)(\.venv[^/]*|__pycache__)/'; then
             echo "::error::The sdist contains files that should not ship."
             exit 1
           fi

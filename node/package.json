@@ -1,6 +1,6 @@
 {
   "name": "@tanakapayam/conclude",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "private": false,
   "description": "Set up your defaults; conclude infers the env vars, config-file keys, and CLI flags, and resolves them all into one settings object.",
   "keywords": [
@@ -47,7 +47,8 @@
     "build": "tsc -p tsconfig.build.json",
     "clean": "node -e \"require('node:fs').rmSync('dist', { recursive: true, force: true })\"",
     "prebuild": "npm run clean",
-    "smoke": "npm run build && node scripts/smoke.mjs"
+    "smoke": "node scripts/smoke.mjs",
+    "prepack": "npm run build"
   },
   "dependencies": {
     "smol-toml": "^1.8.0"

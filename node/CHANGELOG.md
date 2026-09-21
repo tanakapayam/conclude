@@ -4,7 +4,18 @@ All notable changes to this package are documented in this file. The
 format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and the package adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [0.1.0] - 2026-09-20
+## [0.1.1] - 2026-09-21
+
+### Fixed
+
+- Packing now always builds first (a `prepack` script), and CI packs the
+  package and installs the tarball in a fresh project to prove it. 0.1.0 was
+  published without its build output (`dist/`), so it could not be imported;
+  use 0.1.1.
+
+## [0.1.0] - 2026-09-20 [YANKED]
+
+Published without its build output; use 0.1.1.
 
 ### Added
 
