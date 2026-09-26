@@ -1,0 +1,94 @@
+{
+  "spec_version": 1,
+  "description": "Each layer's conventional name for a setting, derived from the app name and the setting's key.",
+  "cases": [
+    {
+      "name": "plain",
+      "app": "remind",
+      "key": "retries",
+      "env_var": "REMIND_RETRIES",
+      "cli_flag": "--retries",
+      "config_key": "retries"
+    },
+    {
+      "name": "underscore key becomes a hyphenated flag",
+      "app": "remind",
+      "key": "filter_col",
+      "env_var": "REMIND_FILTER_COL",
+      "cli_flag": "--filter-col",
+      "config_key": "filter_col"
+    },
+    {
+      "name": "hyphenated app name",
+      "app": "my-app",
+      "key": "foo_bar",
+      "env_var": "MY_APP_FOO_BAR",
+      "cli_flag": "--foo-bar",
+      "config_key": "foo_bar"
+    },
+    {
+      "name": "dotted app name",
+      "app": "my.app",
+      "key": "x",
+      "env_var": "MY_APP_X",
+      "cli_flag": "--x",
+      "config_key": "x"
+    },
+    {
+      "name": "app name with a space",
+      "app": "my app",
+      "key": "x",
+      "env_var": "MY_APP_X",
+      "cli_flag": "--x",
+      "config_key": "x"
+    },
+    {
+      "name": "hyphen in the key",
+      "app": "myapp",
+      "key": "a-b",
+      "env_var": "MYAPP_A_B",
+      "cli_flag": "--a-b",
+      "config_key": "a-b"
+    },
+    {
+      "name": "app name that would start with a digit",
+      "app": "123app",
+      "key": "foo",
+      "env_var": "_123APP_FOO",
+      "cli_flag": "--foo",
+      "config_key": "foo"
+    },
+    {
+      "name": "digits later in the name are fine",
+      "app": "app2",
+      "key": "x1",
+      "env_var": "APP2_X1",
+      "cli_flag": "--x1",
+      "config_key": "x1"
+    },
+    {
+      "name": "upper case is folded for the env var only",
+      "app": "REMIND",
+      "key": "Retries",
+      "env_var": "REMIND_RETRIES",
+      "cli_flag": "--Retries",
+      "config_key": "Retries"
+    },
+    {
+      "name": "non-ASCII characters are not identifier characters",
+      "app": "café",
+      "key": "x",
+      "env_var": "CAF__X",
+      "cli_flag": "--x",
+      "config_key": "x"
+    },
+    {
+      "name": "existing underscores are kept",
+      "app": "my_app",
+      "key": "a_b_c",
+      "env_var": "MY_APP_A_B_C",
+      "cli_flag": "--a-b-c",
+      "config_key": "a_b_c"
+    }
+  ]
+}

@@ -1,0 +1,571 @@
+{
+  "spec_version": 1,
+  "description": "Merging config files, lowest priority first: system < user < project < sibling files (sorted by name). `files` maps a layer to TOML text (`siblings` maps file names to TOML text); `aux_pattern: null` disables siblings; only keys named in `settings` are read.",
+  "cases": [
+    {
+      "name": "no files",
+      "settings": [
+        {
+          "key": "size",
+          "type": "int",
+          "default": 1
+        },
+        {
+          "key": "filename",
+          "type": "str",
+          "default": null
+        },
+        {
+          "key": "loud",
+          "type": "bool",
+          "default": false
+        }
+      ],
+      "table_path": [
+        "myapp"
+      ],
+      "files": {},
+      "expect": {}
+    },
+    {
+      "name": "system file alone",
+      "settings": [
+        {
+          "key": "size",
+          "type": "int",
+          "default": 1
+        },
+        {
+          "key": "filename",
+          "type": "str",
+          "default": null
+        },
+        {
+          "key": "loud",
+          "type": "bool",
+          "default": false
+        }
+      ],
+      "table_path": [
+        "myapp"
+      ],
+      "files": {
+        "system": "[myapp]\nsize = 2\n"
+      },
+      "expect": {
+        "size": 2
+      }
+    },
+    {
+      "name": "user beats system",
+      "settings": [
+        {
+          "key": "size",
+          "type": "int",
+          "default": 1
+        },
+        {
+          "key": "filename",
+          "type": "str",
+          "default": null
+        },
+        {
+          "key": "loud",
+          "type": "bool",
+          "default": false
+        }
+      ],
+      "table_path": [
+        "myapp"
+      ],
+      "files": {
+        "system": "[myapp]\nsize = 2\n",
+        "user": "[myapp]\nsize = 3\n"
+      },
+      "expect": {
+        "size": 3
+      }
+    },
+    {
+      "name": "project beats user",
+      "settings": [
+        {
+          "key": "size",
+          "type": "int",
+          "default": 1
+        },
+        {
+          "key": "filename",
+          "type": "str",
+          "default": null
+        },
+        {
+          "key": "loud",
+          "type": "bool",
+          "default": false
+        }
+      ],
+      "table_path": [
+        "myapp"
+      ],
+      "files": {
+        "user": "[myapp]\nsize = 3\n",
+        "project": "[myapp]\nsize = 4\n"
+      },
+      "expect": {
+        "size": 4
+      }
+    },
+    {
+      "name": "sibling files beat the project file",
+      "settings": [
+        {
+          "key": "size",
+          "type": "int",
+          "default": 1
+        },
+        {
+          "key": "filename",
+          "type": "str",
+          "default": null
+        },
+        {
+          "key": "loud",
+          "type": "bool",
+          "default": false
+        }
+      ],
+      "table_path": [
+        "myapp"
+      ],
+      "files": {
+        "project": "[myapp]\nsize = 4\n",
+        "siblings": {
+          ".config.extra.toml": "[myapp]\nsize = 5\n"
+        }
+      },
+      "expect": {
+        "size": 5
+      }
+    },
+    {
+      "name": "siblings merge in sorted name order, the last winning",
+      "settings": [
+        {
+          "key": "size",
+          "type": "int",
+          "default": 1
+        },
+        {
+          "key": "filename",
+          "type": "str",
+          "default": null
+        },
+        {
+          "key": "loud",
+          "type": "bool",
+          "default": false
+        }
+      ],
+      "table_path": [
+        "myapp"
+      ],
+      "files": {
+        "project": "[myapp]\nsize = 1\n",
+        "siblings": {
+          ".config.b.toml": "[myapp]\nsize = 6\n",
+          ".config.a.toml": "[myapp]\nsize = 5\n"
+        }
+      },
+      "expect": {
+        "size": 6
+      }
+    },
+    {
+      "name": "files combine key by key",
+      "settings": [
+        {
+          "key": "size",
+          "type": "int",
+          "default": 1
+        },
+        {
+          "key": "filename",
+          "type": "str",
+          "default": null
+        },
+        {
+          "key": "loud",
+          "type": "bool",
+          "default": false
+        }
+      ],
+      "table_path": [
+        "myapp"
+      ],
+      "files": {
+        "system": "[myapp]\nfilename = 'sys.csv'\nsize = 2\n",
+        "user": "[myapp]\nsize = 3\n",
+        "project": "[myapp]\nloud = true\n"
+      },
+      "expect": {
+        "filename": "sys.csv",
+        "size": 3,
+        "loud": true
+      }
+    },
+    {
+      "name": "keys no setting declares are ignored",
+      "settings": [
+        {
+          "key": "size",
+          "type": "int",
+          "default": 1
+        },
+        {
+          "key": "filename",
+          "type": "str",
+          "default": null
+        },
+        {
+          "key": "loud",
+          "type": "bool",
+          "default": false
+        }
+      ],
+      "table_path": [
+        "myapp"
+      ],
+      "files": {
+        "project": "[myapp]\nsize = 4\nunrelated = 1\n"
+      },
+      "expect": {
+        "size": 4
+      }
+    },
+    {
+      "name": "another table can be selected",
+      "settings": [
+        {
+          "key": "size",
+          "type": "int",
+          "default": 1
+        },
+        {
+          "key": "filename",
+          "type": "str",
+          "default": null
+        },
+        {
+          "key": "loud",
+          "type": "bool",
+          "default": false
+        }
+      ],
+      "table_path": [
+        "other"
+      ],
+      "files": {
+        "project": "[myapp]\nsize = 4\n[other]\nsize = 7\n"
+      },
+      "expect": {
+        "size": 7
+      }
+    },
+    {
+      "name": "a missing table contributes nothing",
+      "settings": [
+        {
+          "key": "size",
+          "type": "int",
+          "default": 1
+        },
+        {
+          "key": "filename",
+          "type": "str",
+          "default": null
+        },
+        {
+          "key": "loud",
+          "type": "bool",
+          "default": false
+        }
+      ],
+      "table_path": [
+        "myapp"
+      ],
+      "files": {
+        "project": "[other]\nsize = 7\n"
+      },
+      "expect": {}
+    },
+    {
+      "name": "a table that is not a table contributes nothing",
+      "settings": [
+        {
+          "key": "size",
+          "type": "int",
+          "default": 1
+        },
+        {
+          "key": "filename",
+          "type": "str",
+          "default": null
+        },
+        {
+          "key": "loud",
+          "type": "bool",
+          "default": false
+        }
+      ],
+      "table_path": [
+        "myapp"
+      ],
+      "files": {
+        "project": "myapp = 3\n"
+      },
+      "expect": {}
+    },
+    {
+      "name": "two-level tables: the child overrides the parent",
+      "settings": [
+        {
+          "key": "size",
+          "type": "int",
+          "default": 1
+        },
+        {
+          "key": "filename",
+          "type": "str",
+          "default": null
+        },
+        {
+          "key": "loud",
+          "type": "bool",
+          "default": false
+        }
+      ],
+      "table_path": [
+        "myapp",
+        "deck"
+      ],
+      "files": {
+        "project": "[myapp]\nsize = 1\nfilename = 'a.csv'\n[myapp.deck]\nsize = 9\n"
+      },
+      "expect": {
+        "size": 9,
+        "filename": "a.csv"
+      }
+    },
+    {
+      "name": "two-level tables: a missing child leaves the parent",
+      "settings": [
+        {
+          "key": "size",
+          "type": "int",
+          "default": 1
+        },
+        {
+          "key": "filename",
+          "type": "str",
+          "default": null
+        },
+        {
+          "key": "loud",
+          "type": "bool",
+          "default": false
+        }
+      ],
+      "table_path": [
+        "myapp",
+        "deck"
+      ],
+      "files": {
+        "project": "[myapp]\nsize = 1\n"
+      },
+      "expect": {
+        "size": 1
+      }
+    },
+    {
+      "name": "two-level tables: parent settings do not leak sideways",
+      "settings": [
+        {
+          "key": "size",
+          "type": "int",
+          "default": 1
+        },
+        {
+          "key": "filename",
+          "type": "str",
+          "default": null
+        },
+        {
+          "key": "loud",
+          "type": "bool",
+          "default": false
+        }
+      ],
+      "table_path": [
+        "myapp",
+        "other"
+      ],
+      "files": {
+        "project": "[myapp]\nsize = 1\n[myapp.deck]\nsize = 9\n[myapp.other]\nsize = 8\n"
+      },
+      "expect": {
+        "size": 8
+      }
+    },
+    {
+      "name": "a nested table is only read when asked for",
+      "settings": [
+        {
+          "key": "size",
+          "type": "int",
+          "default": 1
+        },
+        {
+          "key": "filename",
+          "type": "str",
+          "default": null
+        },
+        {
+          "key": "loud",
+          "type": "bool",
+          "default": false
+        }
+      ],
+      "table_path": [
+        "myapp"
+      ],
+      "files": {
+        "project": "[myapp]\nsize = 1\n[myapp.deck]\nsize = 9\n"
+      },
+      "expect": {
+        "size": 1
+      }
+    },
+    {
+      "name": "siblings can be switched off",
+      "settings": [
+        {
+          "key": "size",
+          "type": "int",
+          "default": 1
+        },
+        {
+          "key": "filename",
+          "type": "str",
+          "default": null
+        },
+        {
+          "key": "loud",
+          "type": "bool",
+          "default": false
+        }
+      ],
+      "table_path": [
+        "myapp"
+      ],
+      "files": {
+        "project": "[myapp]\nsize = 4\n",
+        "siblings": {
+          ".config.extra.toml": "[myapp]\nsize = 5\n"
+        }
+      },
+      "aux_pattern": null,
+      "expect": {
+        "size": 4
+      }
+    },
+    {
+      "name": "a custom sibling pattern",
+      "settings": [
+        {
+          "key": "size",
+          "type": "int",
+          "default": 1
+        },
+        {
+          "key": "filename",
+          "type": "str",
+          "default": null
+        },
+        {
+          "key": "loud",
+          "type": "bool",
+          "default": false
+        }
+      ],
+      "table_path": [
+        "myapp"
+      ],
+      "files": {
+        "project": "[myapp]\nsize = 4\n",
+        "siblings": {
+          ".config.extra.toml": "[myapp]\nsize = 5\n",
+          ".local.one.toml": "[myapp]\nsize = 6\n"
+        }
+      },
+      "aux_pattern": ".local.*.toml",
+      "expect": {
+        "size": 6
+      }
+    },
+    {
+      "name": "a malformed file is an error",
+      "settings": [
+        {
+          "key": "size",
+          "type": "int",
+          "default": 1
+        },
+        {
+          "key": "filename",
+          "type": "str",
+          "default": null
+        },
+        {
+          "key": "loud",
+          "type": "bool",
+          "default": false
+        }
+      ],
+      "table_path": [
+        "myapp"
+      ],
+      "files": {
+        "project": "not [valid toml"
+      },
+      "error": true
+    },
+    {
+      "name": "a malformed system file is an error too",
+      "settings": [
+        {
+          "key": "size",
+          "type": "int",
+          "default": 1
+        },
+        {
+          "key": "filename",
+          "type": "str",
+          "default": null
+        },
+        {
+          "key": "loud",
+          "type": "bool",
+          "default": false
+        }
+      ],
+      "table_path": [
+        "myapp"
+      ],
+      "files": {
+        "system": "size = = 1"
+      },
+      "error": true
+    }
+  ]
+}

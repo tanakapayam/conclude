@@ -1,0 +1,603 @@
+{
+  "spec_version": 1,
+  "description": "Generated templates. `expect` holds the exact text of `env`, `toml` and `cli` (each optional). `options`: `skip` (keys to leave out), `defaults` (effective defaults), `env_vars` (env var name overrides), `table` (TOML header: a name, a path, or [] for none), `header` (false drops it), `metavars` (CLI metavar overrides; a list makes several).",
+  "cases": [
+    {
+      "name": "the basic shape",
+      "app": "myapp",
+      "settings": [
+        {
+          "key": "host",
+          "type": "str",
+          "default": "localhost"
+        },
+        {
+          "key": "port",
+          "type": "int",
+          "default": 8080
+        },
+        {
+          "key": "debug",
+          "type": "bool",
+          "default": false
+        },
+        {
+          "key": "timeout",
+          "type": "int",
+          "default": 30
+        }
+      ],
+      "expect": {
+        "env": "MYAPP_HOST=localhost\nMYAPP_PORT=8080\nMYAPP_DEBUG=false\nMYAPP_TIMEOUT=30",
+        "toml": "[myapp]\nhost = \"localhost\"\nport = 8080\ndebug = false\ntimeout = 30",
+        "cli": "--host <HOST>       (default: localhost)\n--port <PORT>       (default: 8080)\n--debug             (default: false)\n--timeout <TIMEOUT> (default: 30)"
+      }
+    },
+    {
+      "name": "settings without a default are placeholders",
+      "app": "myapp",
+      "settings": [
+        {
+          "key": "host",
+          "type": "str",
+          "default": "h"
+        },
+        {
+          "key": "filename",
+          "type": "str",
+          "default": null
+        },
+        {
+          "key": "tags",
+          "type": "list",
+          "default": null
+        }
+      ],
+      "expect": {
+        "env": "MYAPP_HOST=h\n# MYAPP_FILENAME=\n# MYAPP_TAGS=",
+        "toml": "[myapp]\nhost = \"h\"\n# filename =\n# tags =",
+        "cli": "--host <HOST>         (default: h)\n--filename <FILENAME> (default: none)\n--tags <TAGS>         (default: none)"
+      }
+    },
+    {
+      "name": "underscored keys",
+      "app": "myapp",
+      "settings": [
+        {
+          "key": "filter_col",
+          "type": "str",
+          "default": "x"
+        }
+      ],
+      "expect": {
+        "env": "MYAPP_FILTER_COL=x",
+        "toml": "[myapp]\nfilter_col = \"x\"",
+        "cli": "--filter-col <FILTER_COL> (default: x)"
+      }
+    },
+    {
+      "name": "a hyphenated app name and an env var override",
+      "app": "my-app",
+      "settings": [
+        {
+          "key": "host",
+          "type": "str",
+          "default": "h"
+        },
+        {
+          "key": "port",
+          "type": "int",
+          "default": 1
+        }
+      ],
+      "options": {
+        "env_vars": {
+          "port": "PORT"
+        }
+      },
+      "expect": {
+        "env": "MY_APP_HOST=h\nPORT=1",
+        "toml": "[my-app]\nhost = \"h\"\nport = 1",
+        "cli": "--host <HOST> (default: h)\n--port <PORT> (default: 1)"
+      }
+    },
+    {
+      "name": "skipping a setting",
+      "app": "myapp",
+      "settings": [
+        {
+          "key": "host",
+          "type": "str",
+          "default": "h"
+        },
+        {
+          "key": "port",
+          "type": "int",
+          "default": 1
+        }
+      ],
+      "options": {
+        "skip": [
+          "port"
+        ]
+      },
+      "expect": {
+        "env": "MYAPP_HOST=h",
+        "toml": "[myapp]\nhost = \"h\"",
+        "cli": "--host <HOST> (default: h)"
+      }
+    },
+    {
+      "name": "skipping everything",
+      "app": "myapp",
+      "settings": [
+        {
+          "key": "host",
+          "type": "str",
+          "default": "h"
+        }
+      ],
+      "options": {
+        "skip": [
+          "host"
+        ]
+      },
+      "expect": {
+        "env": "",
+        "toml": "[myapp]",
+        "cli": ""
+      }
+    },
+    {
+      "name": "an effective default replaces the declared one",
+      "app": "myapp",
+      "settings": [
+        {
+          "key": "filename",
+          "type": "str",
+          "default": null
+        },
+        {
+          "key": "port",
+          "type": "int",
+          "default": 1
+        }
+      ],
+      "options": {
+        "defaults": {
+          "filename": "x.csv"
+        }
+      },
+      "expect": {
+        "env": "MYAPP_FILENAME=x.csv\nMYAPP_PORT=1",
+        "toml": "[myapp]\nfilename = \"x.csv\"\nport = 1",
+        "cli": "--filename <FILENAME> (default: x.csv)\n--port <PORT>         (default: 1)"
+      }
+    },
+    {
+      "name": "a named table",
+      "app": "myapp",
+      "settings": [
+        {
+          "key": "a",
+          "type": "int",
+          "default": 1
+        }
+      ],
+      "options": {
+        "table": "other"
+      },
+      "expect": {
+        "toml": "[other]\na = 1"
+      }
+    },
+    {
+      "name": "a nested table",
+      "app": "myapp",
+      "settings": [
+        {
+          "key": "a",
+          "type": "int",
+          "default": 1
+        }
+      ],
+      "options": {
+        "table": [
+          "myapp",
+          "deck"
+        ]
+      },
+      "expect": {
+        "toml": "[myapp.deck]\na = 1"
+      }
+    },
+    {
+      "name": "a table name that needs quoting",
+      "app": "myapp",
+      "settings": [
+        {
+          "key": "a",
+          "type": "int",
+          "default": 1
+        }
+      ],
+      "options": {
+        "table": "has space"
+      },
+      "expect": {
+        "toml": "[\"has space\"]\na = 1"
+      }
+    },
+    {
+      "name": "an empty table path has no header",
+      "app": "myapp",
+      "settings": [
+        {
+          "key": "a",
+          "type": "int",
+          "default": 1
+        }
+      ],
+      "options": {
+        "table": []
+      },
+      "expect": {
+        "toml": "a = 1"
+      }
+    },
+    {
+      "name": "the header can be left out",
+      "app": "myapp",
+      "settings": [
+        {
+          "key": "a",
+          "type": "int",
+          "default": 1
+        }
+      ],
+      "options": {
+        "header": false
+      },
+      "expect": {
+        "toml": "a = 1"
+      }
+    },
+    {
+      "name": "numbers",
+      "app": "myapp",
+      "settings": [
+        {
+          "key": "ratio",
+          "type": "float",
+          "default": 0.5
+        },
+        {
+          "key": "whole",
+          "type": "float",
+          "default": 3.0
+        },
+        {
+          "key": "neg",
+          "type": "int",
+          "default": -3
+        },
+        {
+          "key": "port",
+          "type": "int",
+          "default": 8080
+        }
+      ],
+      "expect": {
+        "env": "MYAPP_RATIO=0.5\nMYAPP_WHOLE=3.0\nMYAPP_NEG=-3\nMYAPP_PORT=8080",
+        "toml": "[myapp]\nratio = 0.5\nwhole = 3.0\nneg = -3\nport = 8080",
+        "cli": "--ratio <RATIO> (default: 0.5)\n--whole <WHOLE> (default: 3.0)\n--neg <NEG>     (default: -3)\n--port <PORT>   (default: 8080)"
+      }
+    },
+    {
+      "name": "booleans",
+      "app": "myapp",
+      "settings": [
+        {
+          "key": "on",
+          "type": "bool",
+          "default": true
+        },
+        {
+          "key": "off",
+          "type": "bool",
+          "default": false
+        }
+      ],
+      "expect": {
+        "env": "MYAPP_ON=true\nMYAPP_OFF=false",
+        "toml": "[myapp]\non = true\noff = false",
+        "cli": "--on  (default: true)\n--off (default: false)"
+      }
+    },
+    {
+      "name": "lists",
+      "app": "myapp",
+      "settings": [
+        {
+          "key": "tags",
+          "type": "list",
+          "default": [
+            "a",
+            "b"
+          ]
+        },
+        {
+          "key": "none",
+          "type": "list",
+          "default": []
+        }
+      ],
+      "expect": {
+        "env": "MYAPP_TAGS=a,b\nMYAPP_NONE=",
+        "toml": "[myapp]\ntags = [\"a\", \"b\"]\nnone = []",
+        "cli": "--tags <TAGS> (default: a,b)\n--none <NONE> (default: \"\")"
+      }
+    },
+    {
+      "name": "a list whose text needs quoting",
+      "app": "myapp",
+      "settings": [
+        {
+          "key": "tags",
+          "type": "list",
+          "default": [
+            "a b",
+            "c"
+          ]
+        }
+      ],
+      "expect": {
+        "env": "MYAPP_TAGS='a b,c'",
+        "toml": "[myapp]\ntags = [\"a b\", \"c\"]",
+        "cli": "--tags <TAGS> (default: a b,c)"
+      }
+    },
+    {
+      "name": "an empty string default",
+      "app": "myapp",
+      "settings": [
+        {
+          "key": "v",
+          "type": "str",
+          "default": ""
+        }
+      ],
+      "expect": {
+        "env": "MYAPP_V=",
+        "toml": "[myapp]\nv = \"\"",
+        "cli": "--v <V> (default: \"\")"
+      }
+    },
+    {
+      "name": "metavar overrides",
+      "app": "myapp",
+      "settings": [
+        {
+          "key": "filename",
+          "type": "str",
+          "default": "x.csv"
+        },
+        {
+          "key": "pair",
+          "type": "str",
+          "default": "a"
+        },
+        {
+          "key": "debug",
+          "type": "bool",
+          "default": false
+        }
+      ],
+      "options": {
+        "metavars": {
+          "filename": "FILE",
+          "pair": [
+            "A",
+            "B"
+          ]
+        }
+      },
+      "expect": {
+        "cli": "--filename <FILE> (default: x.csv)\n--pair <A> <B>    (default: a)\n--debug           (default: false)"
+      }
+    },
+    {
+      "name": "quoting: a space",
+      "app": "myapp",
+      "settings": [
+        {
+          "key": "v",
+          "type": "str",
+          "default": "hello world"
+        }
+      ],
+      "expect": {
+        "env": "MYAPP_V='hello world'",
+        "toml": "[myapp]\nv = \"hello world\"",
+        "cli": "--v <V> (default: hello world)"
+      }
+    },
+    {
+      "name": "quoting: a dollar sign",
+      "app": "myapp",
+      "settings": [
+        {
+          "key": "v",
+          "type": "str",
+          "default": "$HOME"
+        }
+      ],
+      "expect": {
+        "env": "MYAPP_V='$HOME'",
+        "toml": "[myapp]\nv = \"$HOME\""
+      }
+    },
+    {
+      "name": "quoting: an apostrophe",
+      "app": "myapp",
+      "settings": [
+        {
+          "key": "v",
+          "type": "str",
+          "default": "it's"
+        }
+      ],
+      "expect": {
+        "env": "MYAPP_V=\"it's\"",
+        "toml": "[myapp]\nv = \"it's\""
+      }
+    },
+    {
+      "name": "quoting: a newline",
+      "app": "myapp",
+      "settings": [
+        {
+          "key": "v",
+          "type": "str",
+          "default": "a\nb"
+        }
+      ],
+      "expect": {
+        "env": "MYAPP_V=\"a\\nb\"",
+        "toml": "[myapp]\nv = \"a\\nb\""
+      }
+    },
+    {
+      "name": "quoting: a tab",
+      "app": "myapp",
+      "settings": [
+        {
+          "key": "v",
+          "type": "str",
+          "default": "tab\there"
+        }
+      ],
+      "expect": {
+        "env": "MYAPP_V=\"tab\\there\"",
+        "toml": "[myapp]\nv = \"tab\\there\""
+      }
+    },
+    {
+      "name": "quoting: double quotes",
+      "app": "myapp",
+      "settings": [
+        {
+          "key": "v",
+          "type": "str",
+          "default": "say \"hi\""
+        }
+      ],
+      "expect": {
+        "env": "MYAPP_V='say \"hi\"'",
+        "toml": "[myapp]\nv = \"say \\\"hi\\\"\""
+      }
+    },
+    {
+      "name": "quoting: a backslash",
+      "app": "myapp",
+      "settings": [
+        {
+          "key": "v",
+          "type": "str",
+          "default": "back\\slash"
+        }
+      ],
+      "expect": {
+        "env": "MYAPP_V='back\\slash'",
+        "toml": "[myapp]\nv = \"back\\\\slash\""
+      }
+    },
+    {
+      "name": "quoting: an equals sign",
+      "app": "myapp",
+      "settings": [
+        {
+          "key": "v",
+          "type": "str",
+          "default": "a=b"
+        }
+      ],
+      "expect": {
+        "env": "MYAPP_V='a=b'",
+        "toml": "[myapp]\nv = \"a=b\""
+      }
+    },
+    {
+      "name": "quoting: a hash",
+      "app": "myapp",
+      "settings": [
+        {
+          "key": "v",
+          "type": "str",
+          "default": "a#b"
+        }
+      ],
+      "expect": {
+        "env": "MYAPP_V='a#b'",
+        "toml": "[myapp]\nv = \"a#b\""
+      }
+    },
+    {
+      "name": "quoting: letters from other scripts stay bare",
+      "app": "myapp",
+      "settings": [
+        {
+          "key": "v",
+          "type": "str",
+          "default": "café"
+        }
+      ],
+      "expect": {
+        "env": "MYAPP_V=café",
+        "toml": "[myapp]\nv = \"café\""
+      }
+    },
+    {
+      "name": "quoting: punctuation that stays bare",
+      "app": "myapp",
+      "settings": [
+        {
+          "key": "v",
+          "type": "str",
+          "default": "a/b:c@d%e+f,g-h.i"
+        }
+      ],
+      "expect": {
+        "env": "MYAPP_V=a/b:c@d%e+f,g-h.i"
+      }
+    },
+    {
+      "name": "quoting: a control character in TOML",
+      "app": "myapp",
+      "settings": [
+        {
+          "key": "v",
+          "type": "str",
+          "default": "\u001b[0m"
+        }
+      ],
+      "expect": {
+        "toml": "[myapp]\nv = \"\\u001B[0m\""
+      }
+    },
+    {
+      "name": "quoting: DEL in TOML",
+      "app": "myapp",
+      "settings": [
+        {
+          "key": "v",
+          "type": "str",
+          "default": ""
+        }
+      ],
+      "expect": {
+        "toml": "[myapp]\nv = \"\\u007F\""
+      }
+    }
+  ]
+}
