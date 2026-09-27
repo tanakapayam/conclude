@@ -6,6 +6,12 @@ and the package adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.
 
 ## [Unreleased]
 
+## [0.2.7] - 2026-09-26
+
+### Fixed
+
+- Getting a clean NPM-publication workflow.
+
 ## [0.2.6] - 2026-09-26
 
 ### Added
