@@ -1,0 +1,3 @@
+# The library sources nothing; scripts and tests source files by computed
+# path, which shellcheck cannot follow (SC1091, info only).
+disable=SC1091

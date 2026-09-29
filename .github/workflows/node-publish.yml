@@ -47,7 +47,6 @@ defaults:
 jobs:
   ci:
     name: CI
-    # A release of the Python package (python-v*) is not ours.
     if: github.event_name == 'workflow_dispatch' || startsWith(github.event.release.tag_name, 'node-v')
     uses: ./.github/workflows/node-ci.yml
 

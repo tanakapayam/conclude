@@ -1,0 +1,11 @@
+# The tests declare associative arrays and pass their *names* to the
+# library, which fills them through namerefs: shellcheck sees the arrays
+# as unused (SC2034) and their `$key` subscripts as arithmetic (SC2004).
+# SC2153 fires on env vars the library itself `export`s by computed name
+# (MYAPP_HOST, MYAPP_PORT, ...) -- shellcheck can't see that assignment,
+# so it guesses a typo of a same-prefixed var elsewhere in the file.
+# SC2030/SC2031 are a false positive of shellcheck's bats dialect: it
+# treats a bats @test body as a subshell for variable-taint tracking,
+# but it isn't one -- a plain variable set by a function call and read
+# two lines later, as several tests here do, is not actually lost.
+disable=SC1091,SC2004,SC2034,SC2153,SC2030,SC2031

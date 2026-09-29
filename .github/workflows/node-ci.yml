@@ -2,7 +2,9 @@ name: Node CI
 
 on:
   push:
-    branches: [main]
+    branches:
+      - main
+      - node
   pull_request:
   workflow_call: # node-publish.yml runs this before it publishes anything
 
