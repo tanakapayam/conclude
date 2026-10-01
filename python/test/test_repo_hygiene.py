@@ -35,12 +35,37 @@ PRIVATE = [".env", ".env.local", ".developer.toml", ".remind.local.toml", ".conc
 SHIPPED = [
     ".gitignore",
     ".github/dependabot.yml",
+    ".github/workflows/bash-ci.yml",
+    ".github/workflows/bash-publish.yml",
     ".github/workflows/node-ci.yml",
     ".github/workflows/node-publish.yml",
     ".github/workflows/python-ci.yml",
     ".github/workflows/python-publish.yml",
     "LICENSE",
     "README.md",
+    "bash/.shellcheckrc",
+    "bash/CHANGELOG.md",
+    "bash/LICENSE",
+    "bash/README.md",
+    "bash/RELEASING.md",
+    "bash/scripts/install-bash.sh",
+    "bash/scripts/smoke.sh",
+    "bash/src/conclude.sh",
+    "bash/test/.shellcheckrc",
+    "bash/test/casters.bats",
+    "bash/test/config_layers.bats",
+    "bash/test/config_tables.bats",
+    "bash/test/dotenv.bats",
+    "bash/test/gitignore.bats",
+    "bash/test/guard.bats",
+    "bash/test/invocation.bats",
+    "bash/test/merge.bats",
+    "bash/test/naming.bats",
+    "bash/test/resolve.bats",
+    "bash/test/sources.bats",
+    "bash/test/templates.bats",
+    "docs/bash/guide.md",
+    "docs/bash/reference.md",
     "docs/concept.md",
     "docs/node/guide.md",
     "docs/node/reference.md",
@@ -282,6 +307,26 @@ def job_blocks(workflow):
     return dict(zip(parts[1::2], parts[2::2], strict=True))
 
 
+def release_guard_prefixes(workflow_text):
+    """Every '<lang>-v' prefix a release-triggered gate mentions, via
+    startsWith(github.event.release.tag_name, '<lang>-v') -- regardless of
+    whether it's used as a positive self-match ("only run for my own tag")
+    or a negative exclusion ("skip theirs")."""
+    return set(
+        re.findall(
+            r"startsWith\(github\.event\.release\.tag_name,\s*'([a-z]+-v)'\)",
+            workflow_text,
+        )
+    )
+
+
+def ignores_other_languages_releases(workflow_text, own_prefix, other_prefixes):
+    mentioned = release_guard_prefixes(workflow_text)
+    # A positive self-match excludes every other language for free; a
+    # negative-exclusion style instead needs each one named explicitly.
+    return own_prefix in mentioned or other_prefixes <= mentioned
+
+
 @pytest.mark.skipif(not NODE.is_dir(), reason="there is no node/ package in this checkout")
 class TestNodePackage:
     def test_its_license_is_a_copy_of_the_root_license(self):
@@ -323,10 +368,12 @@ class TestNodePackage:
         assert "id-token" not in NODE_CI.read_text(encoding="utf-8")
 
     def test_each_language_ignores_the_other_languages_releases(self):
-        assert "startsWith(github.event.release.tag_name, 'node-v')" in NODE_PUBLISH.read_text(
-            encoding="utf-8"
-        ) or "'node-v'" in NODE_PUBLISH.read_text(encoding="utf-8")
-        assert "'node-v'" in PUBLISH.read_text(encoding="utf-8")
+        assert ignores_other_languages_releases(
+            NODE_PUBLISH.read_text(encoding="utf-8"), "node-v", {"python-v", "bash-v"}
+        )
+        assert ignores_other_languages_releases(
+            PUBLISH.read_text(encoding="utf-8"), "python-v", {"node-v"}
+        )
 
     def test_the_package_stays_private_until_it_is_ready_to_publish(self):
         # A deliberate gate: flip it (and the CHANGELOG) in the release that publishes.
@@ -367,6 +414,78 @@ class TestNodePackage:
         assert "npm run rehearse" in ci and re.search(r"verdaccio@\d+\.\d+\.\d+", ci)
         for script in ["registry.mjs", "rehearse.mjs", "verdaccio.yaml"]:
             assert (NODE / "scripts" / script).exists(), script
+
+
+# --- the Bash package -------------------------------------------------------------------
+
+
+BASH = REPO_ROOT / "bash"
+BASH_CI = WORKFLOWS / "bash-ci.yml"
+BASH_PUBLISH = WORKFLOWS / "bash-publish.yml"
+
+
+@pytest.mark.skipif(not BASH.is_dir(), reason="there is no bash/ package in this checkout")
+class TestBashPackage:
+    def test_its_license_is_a_copy_of_the_root_license(self):
+        assert (BASH / "LICENSE").read_text(encoding="utf-8") == (REPO_ROOT / "LICENSE").read_text(
+            encoding="utf-8"
+        )
+
+    def test_ci_tests_exactly_the_bash_version_the_library_requires(self):
+        version_gate = (BASH / "src" / "conclude.sh").read_text(encoding="utf-8")
+        floor = re.search(r"BASH_VERSINFO\[1\] < (\d+)", version_gate)
+        assert floor, "couldn't find the minor-version floor in conclude.sh's own version gate"
+        matrix = re.search(r'bash:\s*\["([\d.]+)"\]', BASH_CI.read_text(encoding="utf-8"))
+        assert matrix, "couldn't find the CI matrix's bash: [...] version"
+        assert matrix.group(1) == f"5.{floor.group(1)}"
+
+    def test_ci_runs_every_check_it_promises(self):
+        text = BASH_CI.read_text(encoding="utf-8")
+        for command in ["shellcheck src/conclude.sh", "scripts/smoke.sh", "bats test/"]:
+            assert command in text
+
+    def test_ci_is_reusable_and_publish_runs_it_first(self):
+        assert re.search(r"^\s+workflow_call:", BASH_CI.read_text(encoding="utf-8"), re.M)
+        publish = BASH_PUBLISH.read_text(encoding="utf-8")
+        assert "uses: ./.github/workflows/bash-ci.yml" in publish
+        assert re.search(r"needs:\s*ci\b", publish)
+
+    def test_each_language_ignores_the_other_languages_releases(self):
+        assert ignores_other_languages_releases(
+            BASH_PUBLISH.read_text(encoding="utf-8"), "bash-v", {"python-v", "node-v"}
+        )
+        assert ignores_other_languages_releases(
+            PUBLISH.read_text(encoding="utf-8"), "python-v", {"bash-v"}
+        )
+
+    def test_publishing_has_no_stored_secret_and_waits_behind_an_approval_gate(self):
+        publish = BASH_PUBLISH.read_text(encoding="utf-8")
+        assert set(re.findall(r"secrets\.(\w+)", publish)) == set()
+        assert "GH_TOKEN: ${{ github.token }}" in publish
+
+        jobs = job_blocks(publish)
+        assert list(jobs) == ["ci", "build", "production"]
+        production = jobs["production"]
+        assert re.search(r"needs:\s*build\b", production)
+        assert re.search(r"environment:\s*\n\s+name:\s*bash-release\s*\n", production)
+        assert "contents: write" in production
+        assert "contents: write" not in publish.split("\njobs:", 1)[0]
+
+    def test_the_released_file_is_verified_byte_for_byte(self):
+        production = job_blocks(BASH_PUBLISH.read_text(encoding="utf-8"))["production"]
+        assert '"$actual" != "$BUILT"' in production
+        assert production.count("sha256sum") >= 2
+
+    def test_a_manual_run_is_a_rehearsal_that_never_reaches_production(self):
+        publish = BASH_PUBLISH.read_text(encoding="utf-8")
+        assert "workflow_dispatch" in publish
+        production = job_blocks(publish)["production"]
+        assert re.search(r"^\s+if:\s*github\.event_name == 'release'\s*$", production, re.M)
+
+    def test_version_and_changelog_are_checked_before_anything_is_built(self):
+        build = job_blocks(BASH_PUBLISH.read_text(encoding="utf-8"))["build"]
+        assert "CONCLUDE_VERSION" in build
+        assert "CHANGELOG.md" in build
 
 
 def sdist_guard_pattern():

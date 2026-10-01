@@ -5,6 +5,7 @@ on:
     branches:
       - main
       - node
+      - ci-*
   pull_request:
   workflow_call: # node-publish.yml runs this before it publishes anything
 

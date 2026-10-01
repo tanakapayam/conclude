@@ -5,6 +5,7 @@ on:
     branches:
       - main
       - bash
+      - ci-*
   pull_request:
   workflow_call: # bash-publish.yml runs this before it publishes anything
 
