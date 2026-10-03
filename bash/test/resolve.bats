@@ -13,6 +13,7 @@ setup() {
   cd "$WORK" || exit 1
   export HOME="${BATS_TEST_TMPDIR}/home"
   mkdir -p "$HOME"
+  unset XDG_CONFIG_HOME
 }
 
 define_myapp() {
@@ -225,4 +226,113 @@ init_git_with_ignore() {
     --help-sources-args --user "$HOME/.config/myapp/config.toml" \
     -- --port 9
   [ "${CONCLUDE[port]}" = 9 ]
+}
+# --- the personal control file (~/.config/conclude/control.toml) -----------
+
+@test "conclude_resolve_developer_file: no control file at all falls back to .developer.toml" {
+  local out
+  conclude_resolve_developer_file "" out
+  [ "$out" = ".developer.toml" ]
+  conclude_resolve_developer_file "app.toml" out
+  [ "$out" = "app.toml" ]
+}
+
+@test "conclude_resolve_developer_file: control.toml is a fallback by default, not an override" {
+  mkdir -p "$HOME/.config/conclude"
+  printf '[control]\ndeveloper_file = ".from-control.toml"\n' >"$HOME/.config/conclude/control.toml"
+
+  local out
+  conclude_resolve_developer_file "" out
+  [ "$out" = ".from-control.toml" ] # nothing of the app's own to fall back from
+
+  conclude_resolve_developer_file "app.toml" out
+  [ "$out" = "app.toml" ] # the app's own choice still wins
+}
+
+@test "conclude_resolve_developer_file: override = true wins even over the app's own path" {
+  mkdir -p "$HOME/.config/conclude"
+  printf '[control]\ndeveloper_file = ".from-control.toml"\noverride = true\n' \
+    >"$HOME/.config/conclude/control.toml"
+
+  local out
+  conclude_resolve_developer_file "app.toml" out
+  [ "$out" = ".from-control.toml" ]
+}
+
+@test "conclude_resolve_developer_file: [control.bash] overlays [control], same as any app table" {
+  mkdir -p "$HOME/.config/conclude"
+  printf '[control]\ndeveloper_file = ".general.toml"\n[control.bash]\ndeveloper_file = ".bash-only.toml"\n' \
+    >"$HOME/.config/conclude/control.toml"
+
+  local out
+  conclude_resolve_developer_file "" out
+  [ "$out" = ".bash-only.toml" ]
+}
+
+@test "resolve: --developer-opt-in with no path of its own uses control.toml's fallback" {
+  define_myapp
+  init_git_with_ignore .from-control.toml
+  printf '[myapp]\nhost = "from-developer"\n' >.from-control.toml
+  mkdir -p "$HOME/.config/conclude"
+  printf '[control]\ndeveloper_file = ".from-control.toml"\n' >"$HOME/.config/conclude/control.toml"
+
+  conclude_resolve myapp --developer-opt-in -- --port 1
+  [ "${CONCLUDE[host]}" = from-developer ]
+}
+
+@test "resolve: --developer-opt-in with no control.toml at all falls back to .developer.toml" {
+  define_myapp
+  init_git_with_ignore .developer.toml
+  printf '[myapp]\nhost = "from-default-file"\n' >.developer.toml
+
+  conclude_resolve myapp --developer-opt-in -- --port 1
+  [ "${CONCLUDE[host]}" = from-default-file ]
+}
+
+@test "resolve: control.toml's override overrules the app's own --developer-file" {
+  define_myapp
+  init_git_with_ignore .app-choice.toml .control-choice.toml
+  printf '[myapp]\nhost = "from-app-choice"\n' >.app-choice.toml
+  printf '[myapp]\nhost = "from-control-choice"\n' >.control-choice.toml
+  mkdir -p "$HOME/.config/conclude"
+  printf '[control]\ndeveloper_file = ".control-choice.toml"\noverride = true\n' \
+    >"$HOME/.config/conclude/control.toml"
+
+  conclude_resolve myapp --developer-file .app-choice.toml -- --port 1
+  [ "${CONCLUDE[host]}" = from-control-choice ]
+}
+
+@test "resolve: without override, the app's own --developer-file still wins over control.toml" {
+  define_myapp
+  init_git_with_ignore .app-choice.toml .control-choice.toml
+  printf '[myapp]\nhost = "from-app-choice"\n' >.app-choice.toml
+  printf '[myapp]\nhost = "from-control-choice"\n' >.control-choice.toml
+  mkdir -p "$HOME/.config/conclude"
+  printf '[control]\ndeveloper_file = ".control-choice.toml"\n' >"$HOME/.config/conclude/control.toml"
+
+  conclude_resolve myapp --developer-file .app-choice.toml -- --port 1
+  [ "${CONCLUDE[host]}" = from-app-choice ]
+}
+
+@test "resolve: without --developer-file or --developer-opt-in, control.toml is never consulted" {
+  define_myapp
+  init_git_with_ignore .from-control.toml
+  printf '[myapp]\nhost = "from-developer"\n' >.from-control.toml
+  mkdir -p "$HOME/.config/conclude"
+  printf '[control]\ndeveloper_file = ".from-control.toml"\noverride = true\n' \
+    >"$HOME/.config/conclude/control.toml"
+
+  conclude_resolve myapp -- --port 1
+  [ "${CONCLUDE[host]}" = localhost ] # its own default stands; the layer never ran at all
+}
+
+@test "resolve: --user-config's default respects XDG_CONFIG_HOME" {
+  define_myapp
+  export XDG_CONFIG_HOME="${BATS_TEST_TMPDIR}/xdg"
+  mkdir -p "$XDG_CONFIG_HOME/myapp"
+  printf '[myapp]\nhost = "from-xdg"\n' >"$XDG_CONFIG_HOME/myapp/config.toml"
+
+  conclude_resolve myapp -- --port 1
+  [ "${CONCLUDE[host]}" = from-xdg ]
+  unset XDG_CONFIG_HOME
 }

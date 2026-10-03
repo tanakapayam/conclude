@@ -4,6 +4,32 @@ All notable changes to this package are documented in this file. The
 format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and the package adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.2.0] - 2026-10-02
+
+### Added
+
+- A personal control file, `$XDG_CONFIG_HOME/conclude/control.toml` (or
+  `~/.config/conclude/control.toml`), letting a developer set their own
+  `developer_file` for every bash-conclude app on their machine, under
+  `[control]` or, more specifically, `[control.bash]`. By default it's only a
+  fallback for an app with no `--developer-file` of its own; `override = true`
+  makes it win outright, even over an app's explicit choice. It's never
+  consulted unless the app has already opted into the developer layer
+  (`--developer-file` or the new `--developer-opt-in`) -- a personal dotfile
+  can't make a script that never asked for this start reading one.
+  (`conclude_resolve_developer_file`)
+- `conclude_resolve --developer-opt-in`: opt into the developer layer with no
+  path of the app's own, leaving it entirely to the control file (or else
+  `.developer.toml`).
+
+### Fixed
+
+- `conclude_resolve`'s default user-config path now respects
+  `$XDG_CONFIG_HOME` (`$XDG_CONFIG_HOME/APP/config.toml`, falling back to
+  `~/.config/APP/config.toml`), matching the Python package. It previously
+  always used `~/.config/APP/config.toml` even when `$XDG_CONFIG_HOME` was set
+  to somewhere else.
+
 ## [0.1.0] - 2026-09-30
 
 ### Added

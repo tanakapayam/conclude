@@ -42,13 +42,14 @@ matches no setting; on failure nothing is exported.
 Precedence, lowest to highest: defaults, user config, project config (and its
 siblings), environment, developer config, command line.
 
-| Option                  | Meaning                                                                  |
-| ----------------------- | ------------------------------------------------------------------------ |
-| `--user-config PATH`    | user config file (default `~/.config/APP/config.toml`)                   |
-| `--project-config PATH` | project config file (default `./.config.toml`)                           |
-| `--no-siblings`         | do not also read `.config.*.toml` beside the project file                |
-| `--table PART`          | table to read; repeat for a second level (at most two). Default: `[APP]` |
-| `--developer-file PATH` | opt into the developer layer, read from `PATH` while it is guarded       |
+| Option                   | Meaning                                                                                                                                                       |
+| ------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `--user-config PATH`     | user config file (default `$XDG_CONFIG_HOME/APP/config.toml`, falling back to `~/.config/APP/config.toml`)                                                    |
+| `--project-config PATH`  | project config file (default `./.config.toml`)                                                                                                                |
+| `--no-siblings`          | do not also read `.config.*.toml` beside the project file                                                                                                     |
+| `--table PART`           | table to read; repeat for a second level (at most two). Default: `[APP]`                                                                                      |
+| `--developer-file PATH`  | opt into the developer layer with `PATH` as this app's own choice (see `conclude_resolve_developer_file`); read from whichever path wins, while it is guarded |
+| `--developer-opt-in`     | opt into the developer layer with no path of this app's own -- entirely up to `conclude_resolve_developer_file`                                               |
 
 Arguments after `--`: `--key value`, `--key=value`, or a bare `--key` for a
 bool. A bool given a value (`--debug=false`) is an error. `--flag` names come
@@ -56,6 +57,41 @@ from `conclude_cli_flag_name`.
 
 `conclude_resolve` exports its results, so a second call in the same shell sees
 them as environment-layer values.
+
+### `conclude_resolve_developer_file PROVIDED_PATH OUTVAR`
+
+Decides the real developer-config file path once an app has opted into the
+developer layer. `PROVIDED_PATH` is the app's own hardcoded choice from
+`--developer-file`, or `""` if it only gave `--developer-opt-in`.
+
+A personal control file, `$XDG_CONFIG_HOME/conclude/control.toml` (falling back
+to `~/.config/conclude/control.toml`), can supply or override that choice, under
+`[control]` or, more specifically, `[control.bash]` (the latter wins if both are
+set, via the same parent/child overlay `conclude_read_config_table` uses for an
+app's own tables):
+
+```toml
+[control]
+developer_file = ".developer.toml"
+
+[control.bash]
+developer_file = ".bash-developer.toml"  # wins over [control] above, for Bash specifically
+override = true                          # wins outright, even over the app's own --developer-file
+```
+
+`override` defaults to `false` -- the control file's `developer_file` is then
+only a *fallback* for an app with no opinion of its own. Precedence: the control
+file's path if `override = true`; else `PROVIDED_PATH` if given; else the control
+file's path as a fallback; else `.developer.toml`.
+
+This is never consulted unless the app has already opted into the developer
+layer (`--developer-file` or `--developer-opt-in`) -- `override` decides *which*
+file is read, not *whether* the guarded-developer-file mechanism runs at all, so
+a personal control file can't make a script that never asked for this start
+reading one. A malformed control file is never fatal: the problem is reported on
+stderr and resolution falls back to `PROVIDED_PATH` (or `.developer.toml`),
+since a typo in a personal dotfile shouldn't be able to break somebody else's
+script. Returns 0 always.
 
 ### `conclude_merge_layers TYPESVAR OUTVAR LAYERVAR...`
 

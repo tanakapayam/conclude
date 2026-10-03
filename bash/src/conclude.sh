@@ -36,7 +36,7 @@ fi
 
 # The version of this file; the release workflow checks it against the
 # release tag and CHANGELOG.md, so bump all three together.
-CONCLUDE_VERSION="0.1.0"
+CONCLUDE_VERSION="0.2.0"
 
 # --- naming (spec/naming.json) --------------------------------------------
 #
@@ -839,27 +839,117 @@ conclude_merge_layers() {
 
 declare -gA CONCLUDE=()
 
+# --- the personal control file -----------------------------------------
+#
+# Bash has no pyproject.toml/package.json for a developer to name their
+# own developer-config file in -- so, unlike Python and Node,
+# conclude_resolve's developer layer has nothing to discover a path
+# from except being told one directly (see --developer-file below). A
+# dedicated, per-user file closes that gap: one developer_file setting
+# a person can set once for every bash-conclude app on their machine,
+# with no project-specific wiring required.
+#
+# This is deliberately its own small, standalone file -- not read
+# through conclude_resolve's own config-file machinery (no system/
+# project/env/CLI layering, no app-specific table). It is also,
+# deliberately, not yet a cross-language concept: [control.bash] is
+# this binding's own section of a file other bindings could one day
+# read too, but that's a decision for if and when this proves useful
+# beyond Bash, not something to commit the other ports to today.
+
+# _conclude_control_path -- the fixed location of the personal control
+# file, respecting XDG_CONFIG_HOME.
+_conclude_control_path() {
+  printf '%s/conclude/control.toml' "${XDG_CONFIG_HOME:-$HOME/.config}"
+}
+
+# conclude_resolve_developer_file PROVIDED_PATH OUTVAR
+#   Decides the real developer-config file path once an app has opted
+#   into conclude_resolve's developer layer (see --developer-file/
+#   --developer-opt-in below). PROVIDED_PATH is the app's own hardcoded
+#   choice, or "" if it only opted in without one.
+#
+#   ~/.config/conclude/control.toml (or $XDG_CONFIG_HOME's equivalent)
+#   lets a developer set their own developer_file, under [control] or,
+#   more specifically, [control.bash] (which wins if both are set, via
+#   the same parent/child overlay conclude_read_config_table already
+#   does for an app's own tables). By default that's only a *fallback*
+#   for an app with no opinion of its own; setting `override = true`
+#   makes the developer's choice win outright, even over an app's
+#   explicit --developer-file PATH. override never matters if the app
+#   never opted in at all -- it overrides which file is read, not
+#   whether the guarded-developer-file mechanism runs in the first
+#   place, so a personal dotfile can't make a script that never asked
+#   for this start reading one.
+#
+#   Precedence: control's path (if override=true) > PROVIDED_PATH (if
+#   given) > control's path (as a fallback) > ".developer.toml".
+#   Never fails outright on a bad control file -- falls back to
+#   PROVIDED_PATH (or the default) and reports the problem on stderr,
+#   since a typo in a personal dotfile shouldn't be able to break
+#   somebody else's script.
+conclude_resolve_developer_file() {
+  local provided_path=$1 outvar=$2
+  local -n _cd_devfile_out=$outvar
+
+  local control_developer="" control_override=false control_path
+  control_path=$(_conclude_control_path)
+  if [[ -f $control_path ]]; then
+    local -A control_raw=() control_cast=()
+    local -A control_types=([developer_file]=str [override]=bool)
+    if conclude_load_config_file "$control_path" control_raw control bash &&
+      conclude_cast_table_values control_types control_raw control_cast; then
+      control_developer=${control_cast[developer_file]-}
+      control_override=${control_cast[override]-false}
+    else
+      printf 'conclude: ignoring unreadable control file %q\n' "$control_path" >&2
+    fi
+  fi
+
+  if [[ -n $control_developer && $control_override == true ]]; then
+    _cd_devfile_out=$control_developer
+  elif [[ -n $provided_path ]]; then
+    _cd_devfile_out=$provided_path
+  elif [[ -n $control_developer ]]; then
+    _cd_devfile_out=$control_developer
+  else
+    _cd_devfile_out=".developer.toml"
+  fi
+  return 0
+}
+
 # conclude_resolve APP [options] -- ARGS...
 #   Wires together everything above into the real precedence chain:
 #     defaults < user config < project config(+siblings) < env
 #       < developer config < CLI
-#   The developer layer is opt-in via --developer-file (below): unlike
-#   Python/Node it doesn't discover the file through a pyproject.toml
-#   `tool.conclude.developer` table -- that's three TOML levels deep,
-#   past what conclude_read_config_table supports, and the spec
-#   deliberately leaves each binding to name the file its own way
+#   The developer layer is opt-in via --developer-file/--developer-opt-in
+#   (below): unlike Python/Node it doesn't discover the file through a
+#   pyproject.toml `tool.conclude.developer` table -- that's three TOML
+#   levels deep, past what conclude_read_config_table supports, and the
+#   spec deliberately leaves each binding to name the file its own way
 #   (spec/sources.json: "the adapter writes its ecosystem's manifest").
+#   A personal ~/.config/conclude/control.toml can supply or override the
+#   path instead -- see conclude_resolve_developer_file above.
 #   Still not wired in, all off by default in Python too: the
 #   system-wide config file and the .env fallback.
 #
 #   Options (all optional, before the literal "--"):
-#     --user-config PATH     override ~/.config/APP/config.toml
+#     --user-config PATH     override $XDG_CONFIG_HOME/APP/config.toml
+#                             (or ~/.config/APP/config.toml)
 #     --project-config PATH  override ./.config.toml
 #     --no-siblings          don't merge .config.*.toml next to it
-#     --developer-file PATH  opt into the developer layer, read from PATH
-#                             only while it's guarded (existing, inside a
+#     --developer-file PATH  opt into the developer layer with PATH as
+#                             this app's own choice (conclude_resolve_
+#                             developer_file may still override or
+#                             supply it -- see above); read from
+#                             whichever path wins, only while it's
+#                             guarded (existing, inside a
 #                             git tree, gitignored, and MYAPP_DEVELOPER_
 #                             CONFIG not set to off/0/false/no)
+#     --developer-opt-in     opt into the developer layer with no path of
+#                             this app's own -- entirely up to
+#                             conclude_resolve_developer_file (a personal
+#                             control.toml, or else ".developer.toml")
 #     --table PART           (repeatable) explicit table path, as
 #                             conclude_resolve_table_selection; default
 #                             table is APP
@@ -889,10 +979,10 @@ declare -gA CONCLUDE=()
 conclude_resolve() {
   local app=$1
   shift
-  local user_config="${HOME}/.config/${app}/config.toml"
+  local user_config="${XDG_CONFIG_HOME:-$HOME/.config}/${app}/config.toml"
   local project_config="./.config.toml"
   local aux_pattern=".config.*.toml"
-  local developer_file=""
+  local developer_file="" developer_opt_in=0
   local -a table_parts=()
   local help_flag=0 help_prog="" help_usage="[options]" help_before="" help_after=""
   local -a help_sources_args=()
@@ -945,7 +1035,12 @@ conclude_resolve() {
         ;;
       --developer-file)
         developer_file=$2
+        developer_opt_in=1
         shift 2
+        ;;
+      --developer-opt-in)
+        developer_opt_in=1
+        shift
         ;;
       --table)
         table_parts+=("$2")
@@ -1088,17 +1183,19 @@ conclude_resolve() {
   # other name is a dotenv file, whose NAME=value pairs map back to
   # settings through the same env-var naming the env layer uses.
   local -A developer=()
-  if [[ -n $developer_file ]]; then
+  if ((developer_opt_in)); then
+    local resolved_developer_file
+    conclude_resolve_developer_file "$developer_file" resolved_developer_file
     local dev_active dev_reason dev_kill
     dev_kill=$(conclude_env_var_name "$app" "developer_config")
-    conclude_check_guard "$developer_file" "$dev_kill" dev_active dev_reason
+    conclude_check_guard "$resolved_developer_file" "$dev_kill" dev_active dev_reason
     if [[ $dev_active == true ]]; then
-      if [[ ${developer_file,,} == *.toml ]]; then
-        conclude_load_config_file "$developer_file" layer_raw "$table1" "$table2" || return 1
+      if [[ ${resolved_developer_file,,} == *.toml ]]; then
+        conclude_load_config_file "$resolved_developer_file" layer_raw "$table1" "$table2" || return 1
         for key in "${!layer_raw[@]}"; do developer[$key]=${layer_raw[$key]}; done
       else
         local -A dev_dotenv=()
-        conclude_load_dotenv "$developer_file" dev_dotenv
+        conclude_load_dotenv "$resolved_developer_file" dev_dotenv
         for key in "${keys[@]}"; do
           envname=$(conclude_env_var_name "$app" "$key")
           [[ -v dev_dotenv[$envname] ]] && developer[$key]=${dev_dotenv[$envname]}

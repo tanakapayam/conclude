@@ -76,7 +76,8 @@ as an exported variable (`MYAPP_HOST`, `MYAPP_PORT`, ...), and, from each
 | Config-file key                     | `filter_col` under `[myapp]` |
 
 Precedence, lowest to highest: **defaults, user config
-(`~/.config/myapp/config.toml`), project config (`./.config.toml`, then its
+(`$XDG_CONFIG_HOME/myapp/config.toml`, falling back to
+`~/.config/myapp/config.toml`), project config (`./.config.toml`, then its
 `.config.*.toml` siblings in name order), environment, developer config, CLI.**
 
 Then generate what you would otherwise write by hand:
@@ -105,6 +106,13 @@ conclude_describe_sources myapp out --user "$HOME/.config/myapp/config.toml"
 - Locale-independent by construction: the library forces `LC_CTYPE=C.UTF-8`
   inside the functions that walk characters, so `café` is four characters
   whether or not your locale is UTF-8.
+- **A personal control file**, `$XDG_CONFIG_HOME/conclude/control.toml`
+  (falling back to `~/.config/conclude/control.toml`), can supply or override
+  `--developer-file`'s path for every conclude-based Bash script on your
+  machine -- see `conclude_resolve_developer_file` in the
+  [reference](https://github.com/tanakapayam/conclude/blob/main/docs/bash/reference.md).
+  It's only ever consulted once an app has already opted into the developer
+  layer.
 
 ## Documentation
 

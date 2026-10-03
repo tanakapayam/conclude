@@ -298,7 +298,52 @@ real, deliberate difference, not an oversight: the shared fixtures leave
 *how* a file gets named up to each language, since "the ecosystem's manifest"
 means something different everywhere, and Bash doesn't really have one.
 
-## 9. Turning off a source, and telling the user
+## 9. A personal control file
+
+Naming the file every time is fine for one tool, but if you write several
+conclude-based scripts, you probably want to pick one name for your own
+developer files and be done with it. `--developer-opt-in` says "I want the
+developer layer, but I have no opinion about the path" -- which leaves it up
+to a personal file, `~/.config/conclude/control.toml`:
+
+```bash
+conclude_resolve remind --developer-opt-in -- "$@"
+```
+
+```console
+$ ./remind.sh --message hi      # no control.toml yet: falls back to .developer.toml
+channel=
+$ mkdir -p ~/.config/conclude
+$ printf '[control.bash]\ndeveloper_file = ".remind.local.toml"\n' > ~/.config/conclude/control.toml
+$ ./remind.sh --message hi
+channel=console
+```
+
+`[control.bash]` is this one file's answer for every Bash-conclude script on
+your machine -- `[control]` alone would do the same thing less specifically
+(the two overlay exactly the way an app's own two-level config tables do).
+By default this is only a *fallback*: an app that calls `--developer-file`
+with its own path keeps that path regardless of what your control file says.
+Setting `override = true` changes that -- your choice wins outright, even
+over the app's:
+
+```console
+$ cat ~/.config/conclude/control.toml
+[control.bash]
+developer_file = ".app-choice.toml"
+override = true
+$ ./remind2.sh --message hi     # remind2.sh hardcodes --developer-file .remind.local.toml
+channel=app-choice
+```
+
+One thing worth being deliberate about: `override` only ever decides *which*
+file gets read, never *whether* the developer layer runs at all. A script
+that calls plain `conclude_resolve remind -- "$@"` -- no `--developer-file`,
+no `--developer-opt-in` -- never consults your control file, no matter what's
+in it. Your personal settings can redirect a mechanism a script already opted
+into; they can't switch one on behind its back.
+
+## 10. Turning off a source, and telling the user
 
 ```bash
 conclude_resolve remind --no-siblings -- "$@"
@@ -321,7 +366,7 @@ config sources:
   developer config  not opted in
 ```
 
-## 10. Generating the docs so they can't drift
+## 11. Generating the docs so they can't drift
 
 Three more calls than you'd expect for a `.env.example`, a config template
 and a `--help` listing, but every one of them is read straight off the same
@@ -356,7 +401,7 @@ A setting with no default -- `message`, `channel` -- comes out commented, so
 copying the `.env` or TOML output gives a template to fill in, not a program
 that silently runs with everything blank.
 
-## 11. Help, for free -- and extending it
+## 12. Help, for free -- and extending it
 
 That last block is already most of a `--help` screen, so `conclude_resolve`
 can assemble and print one itself -- opt in, since a tool with its own
@@ -407,7 +452,7 @@ mechanism, and it's just as usable directly, with the same `--before`/
 `-h` in its own loop, or print help somewhere other than stdout, or shape it
 completely differently. Nothing here is the only way in.
 
-## 12. Putting it together
+## 13. Putting it together
 
 ```bash
 #!/usr/bin/env bash
