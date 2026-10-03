@@ -1,5 +1,5 @@
 {
-  "spec_version": 1,
+  "spec_version": 2,
   "description": "Merging config files, lowest priority first: system < user < project < sibling files (sorted by name). `files` maps a layer to TOML text (`siblings` maps file names to TOML text); `aux_pattern: null` disables siblings; only keys named in `settings` are read.",
   "cases": [
     {

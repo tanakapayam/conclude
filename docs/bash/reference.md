@@ -52,11 +52,25 @@ siblings), environment, developer config, command line.
 | `--developer-opt-in`     | opt into the developer layer with no path of this app's own -- entirely up to `conclude_resolve_developer_file`                                               |
 
 Arguments after `--`: `--key value`, `--key=value`, or a bare `--key` for a
-bool. A bool given a value (`--debug=false`) is an error. `--flag` names come
-from `conclude_cli_flag_name`.
+bool, whose negation `--no-key` sets it to false (the last of the two wins; see
+`conclude_cli_negated_flag_name`). A bool given a value (`--debug=false`,
+`--no-debug=1`) is an error, and so are two settings that claim the same flag.
+`--flag` names come from `conclude_cli_flag_name`. `conclude_parse_cli` is this
+parsing on its own.
 
 `conclude_resolve` exports its results, so a second call in the same shell sees
 them as environment-layer values.
+
+### `conclude_parse_cli APP OUTVAR ARGS...`
+
+What a command line gives each setting -- the CLI layer, and nothing else.
+`OUTVAR` is an associative array you declare; it ends up with one entry per
+setting a flag mentioned (a bool as `true` for `--flag` or `false` for
+`--no-flag`, anything else as the raw text) and no entry for a setting no flag
+mentioned, since a key's presence is an opinion and its absence is none. The last
+flag given for a setting wins. Returns 1 on a flag no setting claims, a value on
+a bool's flag or its negation, a value flag with no value, or two settings
+claiming one flag. This is what `conclude_resolve` runs first (`spec/cli.json`).
 
 ### `conclude_resolve_developer_file PROVIDED_PATH OUTVAR`
 
@@ -107,6 +121,7 @@ one a later layer overrides. `OUTVAR` receives every key `TYPESVAR` declares
 | Function                        | Result                                                                                                             |
 | ------------------------------- | ------------------------------------------------------------------------------------------------------------------ |
 | `conclude_cli_flag_name KEY`    | `filter_col` -> `--filter-col`                                                                                     |
+| `conclude_cli_negated_flag_name KEY` | A bool's flag to turn it off: `debug` -> `--no-debug`; `no_color` -> `--color` (a name already starting `no-` drops it) |
 | `conclude_env_var_name APP KEY` | `remind`, `retries` -> `REMIND_RETRIES`. Punctuation in either part becomes `_`; a leading digit gets a `_` prefix |
 | `conclude_config_key_name KEY`  | `KEY` itself                                                                                                       |
 
@@ -228,6 +243,10 @@ All read the app's declared settings only. `--skip a,b` leaves settings out;
 | `conclude_format_toml APP OUTVAR` | `--table PART` (repeatable; default `[APP]`), `--no-header` |
 | `conclude_format_cli APP OUTVAR`  | `--metavar KEY=NAME[,NAME2...]` (repeatable)                |
 
+In the CLI reference a bool is the flag that *changes* its default: `--flag` when
+the default is false, `--no-flag` when it is true, and `--flag | --no-flag` when
+it has none.
+
 ### `conclude_format_env_value TEXT`
 
 `TEXT` as the right of a `NAME=value` line that `conclude_parse_dotenv` reads
@@ -247,7 +266,9 @@ A POSIX-shell-quoted command line reproducing a resolved run.
 | `--always-include a,b`        | write these even when equal to their default         |
 | `--compare-default KEY=VALUE` | compare against this instead of the declared default |
 
-A setting equal to its default is left out, and an off bool is never written.
+A setting equal to its default is left out. A bool is the bare flag when it is
+on and its negation (`--no-flag`) when it is off, so one whose default is true
+reproduces too.
 Quoting is ASCII-only (`café` is quoted).
 
 ### `conclude_format_help APP OUTVAR [options]`

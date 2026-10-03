@@ -1,6 +1,8 @@
 export type { Layer, ResolvedValues, Setting, SettingType, SettingValue } from "./types.ts";
 export { CastError, ConcludeError, ConfigFileError, ConfigTableError, SetupError } from "./errors.ts";
-export { cliFlagName, configKeyName, envVarName } from "./naming.ts";
+export { cliFlagName, cliNegatedFlagName, configKeyName, envVarName } from "./naming.ts";
+export { cliFlags, cliOptions, parseCli } from "./cli.ts";
+export type { CliFlag, ParsedCli } from "./cli.ts";
 export { cast, castBool, castList, castNumber, castStr, decodeBackslashEscapes } from "./casters.ts";
 export { loadDotenv, parseDotenv } from "./dotenv.ts";
 export { resolve } from "./merge.ts";

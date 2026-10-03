@@ -13,9 +13,9 @@ token, everything here renders for a *reader* or a *file*: unquoted
 
 import re
 import shlex
-from collections.abc import Callable
 from typing import Any
 
+from conclude.formatters import Formatter
 from conclude.tomlwrite import toml_string
 
 # Characters that never need quoting in an .env value: word characters
@@ -26,7 +26,7 @@ _ENV_BARE_RE = re.compile(r"[\w./:@%+,-]*")
 _ENV_DOUBLE_QUOTE_ESCAPES = {"\\": "\\\\", '"': '\\"', "\n": "\\n", "\t": "\\t", "\r": "\\r"}
 
 
-def plain_text(value: Any, formatter: Callable[[Any], str | None] | None = None) -> str | None:
+def plain_text(value: Any, formatter: Formatter | None = None) -> str | None:
     """``value`` as unquoted, human-readable text, or ``None`` for
     "no value" (an unset ``None`` setting).
 
@@ -36,7 +36,9 @@ def plain_text(value: Any, formatter: Callable[[Any], str | None] | None = None)
     if given, is an explicit per-setting :data:`conclude.Formatter`
     override -- its (shell-quoted) output is unquoted again, so a
     setting with a custom caster/formatter pair renders as text that
-    casts back to the same value.
+    casts back to the same value. A formatter may not answer
+    :data:`conclude.NEGATED` here: a negation is a command-line flag and
+    has no text form (a bool never reaches the formatter at all).
     """
     if value is None:
         return None
@@ -46,6 +48,11 @@ def plain_text(value: Any, formatter: Callable[[Any], str | None] | None = None)
         rendered = formatter(value)
         if rendered is None:
             return None
+        if not isinstance(rendered, str):
+            raise TypeError(
+                "a formatter returned NEGATED for a value that is not a bool; "
+                "a negation (--no-flag) has no plain-text form"
+            )
         return " ".join(shlex.split(rendered))
     if isinstance(value, (list, tuple)):
         return ",".join(str(item) for item in value)

@@ -4,6 +4,31 @@ All notable changes to this package are documented in this file. The
 format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and the package adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+## [0.3.0] - 2026-10-04
+
+### Added
+
+- **A negation for every boolean flag.** A `bool` setting gets `--no-flag` as
+  well as `--flag`: `conclude_resolve` reads it as `false`, and the last one
+  given wins. A key that already starts with `no_` is turned off by dropping it
+  (`no_color`: `--no-color` on, `--color` off). New functions:
+  `conclude_cli_negated_flag_name` and `conclude_parse_cli`, the CLI-layer
+  parsing `conclude_resolve` now uses.
+- Two settings that claim the same flag (`cache` and `no_cache`) are an error
+  from `conclude_resolve`, `conclude_format_cli` and `conclude_format_invocation`.
+
+### Changed
+
+- `conclude_format_invocation` writes a bool that is off as its negation, so a
+  bool whose default is true reproduces; `conclude_format_cli` shows the flag
+  that changes a bool's default (`--no-flag` for true, `--flag | --no-flag` for
+  none).
+- A bool given a value (`--debug=false`) is still an error, but its message no
+  longer says there is no way to turn a bool off.
+- Conforms to spec version 2 (new `spec/cli.json`, run by `test/cli.bats`).
+
 ## [0.2.0] - 2026-10-02
 
 ### Added

@@ -304,7 +304,7 @@ def test_format_cli_no_trailing_whitespace_and_aligned():
 def test_format_cli_flag_names_and_metavars_follow_inference():
     app = App("myapp", {"filter_col": "x", "on": opt(bool)})
     assert app.format_cli() == (
-        "--filter-col <FILTER_COL> (default: x)\n--on                      (default: none)"
+        "--filter-col <FILTER_COL> (default: x)\n--on | --no-on            (default: none)"
     )
 
 
@@ -423,3 +423,11 @@ def test_formatters_argument_replaces_the_apps_own_formatters():
     # in this call, so it renders from its plain value (a real newline
     # pair) instead, double-quoted with escapes.
     assert out == 'MYAPP_DELAY=90min\nMYAPP_SEP="\\n\\n"'
+
+
+def test_a_formatter_cannot_answer_negated_for_plain_text():
+    from conclude.templates import plain_text
+
+    assert plain_text(3, lambda value: str(value)) == "3"
+    with pytest.raises(TypeError, match="NEGATED"):
+        plain_text(3, lambda value: conclude.NEGATED)

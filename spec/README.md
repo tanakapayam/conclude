@@ -4,7 +4,7 @@ Language-neutral test data for [the conclude concept](../docs/concept.md).
 Every file is plain JSON: inputs and expected outputs, with no code in it,
 so any implementation -- the Python package in this repository, a
 TypeScript one, anything else -- can run the same cases and be held to the
-same behavior. **Spec version 1.**
+same behavior. **Spec version 2.**
 
 The Python implementation runs them in
 [`python/test/test_spec.py`](../python/test/test_spec.py), which is also the best
@@ -13,13 +13,16 @@ case into a call on the implementation and compares the result.
 
 ## Who runs them
 
-| Implementation | Harness |
-| --- | --- |
-| Python (the reference implementation) | [`python/test/test_spec.py`](../python/test/test_spec.py) |
-| TypeScript / Node.js | [`node/test/spec.test.ts`](../node/test/spec.test.ts) |
+| Implementation                        | Harness                                                                                           |
+| ------------------------------------- | ------------------------------------------------------------------------------------------------- |
+| Python (the reference implementation) | [`python/test/test_spec.py`](../python/test/test_spec.py)                                         |
+| TypeScript / Node.js                  | [`node/test/spec.test.ts`](../node/test/spec.test.ts)                                             |
+| Bash                                  | [`bash/test/*.bats`](../bash/test) -- one file per fixture (`cli.bats` for `cli.json`, and so on) |
 
-Each harness also checks that it runs every `*.json` file here, so a new
-fixture cannot be added without both learning about it.
+The Python and TypeScript harnesses also check that they run every `*.json`
+file here, so a new fixture cannot be added without them learning about it.
+The Bash tests are one file per fixture, so a new fixture needs a new `.bats`
+file by hand.
 
 ## Format
 
@@ -35,19 +38,20 @@ is unambiguous. Declaring the type explicitly (rather than inferring it
 from the default) keeps the fixtures usable from a language where `3` and
 `3.0` are the same number.
 
-| File | What it pins down | Case fields |
-| --- | --- | --- |
-| `naming.json` | env var, CLI flag and config key for a setting | `app`, `key`; `env_var`, `cli_flag`, `config_key` |
-| `casters.json` | casting a raw value to a declared type | `type`, `input`; `output` or `error` |
-| `dotenv.json` | the `.env` dialect | `text` (the file, UTF-8); `expect` |
-| `merge.json` | layering and precedence | `settings`, `layers` (`config`, `env`, `developer`, `cli`); `expect` or `error` |
-| `config_layers.json` | merging system, user, project and sibling config files | `settings`, `table_path`, `files`, optional `aux_pattern`; `expect` or `error` |
-| `config_tables.json` | choosing which TOML table to read | `op` (`parse` or `resolve`), inputs; `expect` or `error` |
-| `templates.json` | generated env, TOML and CLI templates | `app`, `settings`, optional `options`; `expect` (`env`, `toml`, `cli`) |
-| `gitignore.json` | whether gitignore rules match a path | `files`, `paths` (`path`, `ignored`) |
-| `guard.json` | the gitignore guard for a private file | `files`, `target`, optional `kill_switch_var` and `env`; `expect` (`active`, `reason`) |
-| `invocation.json` | reproducing a resolved configuration as a command line | `settings`, `resolved`, optional `options` (`prog`, `always_include`, `skip`, `compare_defaults`); `expect` (the command line) |
-| `sources.json` | the report of which sources are in play | `app`, `options` (the sources configured), `files`, optional `env`; `expect` (the whole report) |
+| File                 | What it pins down                                                | Case fields |
+| -------------------- | ---------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------ |
+| `naming.json`        | env var, CLI flag, negated CLI flag and config key for a setting | `app`, `key`; `env_var`, `cli_flag`, `cli_negated_flag`, `config_key`                                                          |
+| `casters.json`       | casting a raw value to a declared type                           | `type`, `input`; `output` or `error`                                                                                           |
+| `dotenv.json`        | the `.env` dialect                                               | `text` (the file, UTF-8); `expect`                                                                                             |
+| `merge.json`         | layering and precedence                                          | `settings`, `layers` (`config`, `env`, `developer`, `cli`); `expect` or `error`                                                |
+| `config_layers.json` | merging system, user, project and sibling config files           | `settings`, `table_path`, `files`, optional `aux_pattern`; `expect` or `error`                                                 |
+| `config_tables.json` | choosing which TOML table to read                                | `op` (`parse` or `resolve`), inputs; `expect` or `error`                                                                       |
+| `templates.json`     | generated env, TOML and CLI templates                            | `app`, `settings`, optional `options`; `expect` (`env`, `toml`, `cli`)                                                         |
+| `gitignore.json`     | whether gitignore rules match a path                             | `files`, `paths` (`path`, `ignored`)                                                                                           |
+| `guard.json`         | the gitignore guard for a private file                           | `files`, `target`, optional `kill_switch_var` and `env`; `expect` (`active`, `reason`)                                         |
+| `invocation.json`    | reproducing a resolved configuration as a command line           | `settings`, `resolved`, optional `options` (`prog`, `always_include`, `skip`, `compare_defaults`); `expect` (the command line) |
+| `cli.json`           | what a command line gives a setting, and flag collisions         | `settings`, `argv`; `expect` (the CLI layer) or `error`                                                                        |
+| `sources.json`       | the report of which sources are in play                          | `app`, `options` (the sources configured), `files`, optional `env`; `expect` (the whole report)                                |
 
 The top-level fields of each file, and the meaning of every option, are in
 its `description`.

@@ -1,6 +1,6 @@
 {
-  "spec_version": 1,
-  "description": "Generated templates. `expect` holds the exact text of `env`, `toml` and `cli` (each optional). `options`: `skip` (keys to leave out), `defaults` (effective defaults), `env_vars` (env var name overrides), `table` (TOML header: a name, a path, or [] for none), `header` (false drops it), `metavars` (CLI metavar overrides; a list makes several).",
+  "spec_version": 2,
+  "description": "Generated templates. `expect` holds the exact text of `env`, `toml` and `cli` (each optional). `options`: `skip` (keys to leave out), `defaults` (effective defaults), `env_vars` (env var name overrides), `table` (TOML header: a name, a path, or [] for none), `header` (false drops it), `metavars` (CLI metavar overrides; a list makes several). A `bool` in the CLI template is the flag that changes its default: `--flag` when the default is false, the negation (`--no-flag`) when it is true, and `--flag | --no-flag` when it has none.",
   "cases": [
     {
       "name": "the basic shape",
@@ -311,7 +311,45 @@
       "expect": {
         "env": "MYAPP_ON=true\nMYAPP_OFF=false",
         "toml": "[myapp]\non = true\noff = false",
-        "cli": "--on  (default: true)\n--off (default: false)"
+        "cli": "--no-on (default: true)\n--off   (default: false)"
+      }
+    },
+    {
+      "name": "a boolean with no default shows both flags",
+      "app": "myapp",
+      "settings": [
+        {
+          "key": "verbose",
+          "type": "bool",
+          "default": null
+        },
+        {
+          "key": "port",
+          "type": "int",
+          "default": 8080
+        }
+      ],
+      "expect": {
+        "cli": "--verbose | --no-verbose (default: none)\n--port <PORT>            (default: 8080)"
+      }
+    },
+    {
+      "name": "a negative name shows the flag that changes its default",
+      "app": "myapp",
+      "settings": [
+        {
+          "key": "no_color",
+          "type": "bool",
+          "default": false
+        },
+        {
+          "key": "no_pager",
+          "type": "bool",
+          "default": true
+        }
+      ],
+      "expect": {
+        "cli": "--no-color (default: false)\n--pager    (default: true)"
       }
     },
     {

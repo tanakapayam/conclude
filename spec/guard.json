@@ -1,5 +1,5 @@
 {
-  "spec_version": 1,
+  "spec_version": 2,
   "description": "The gitignore guard for a private local file: switched off? exists? inside a git working tree? ignored by its rules? The first failure is the `reason` (these strings are part of the spec). `files` describes a fresh tree (a key ending in `/` is a directory, `null` is its content); `target` is the file to check; `kill_switch_var` names an environment variable read from `env`.",
   "cases": [
     {

@@ -140,6 +140,14 @@ config_file = app.load_config_files(table_path)
 settings = app.resolve(cli, config_file=config_file)
 ```
 
+A `bool` setting's flag is bare (`--repeat`) and comes with a negation, `--no-repeat`,
+that sets it to `False` -- so a setting whose default is `True` can be turned off
+from the command line, and the last of the two on the line wins. (A key that
+already starts with `no_`, like `no_color`, is turned off by dropping the `no`:
+`--color`.) Leaving both out is no opinion, so a lower layer decides. Two settings
+may not claim the same flag -- `cache` and `no_cache` both want `--no-cache` --
+and `add_arguments` raises `ValueError` if they do.
+
 With this in `.config.toml`:
 
 ```toml
@@ -665,7 +673,8 @@ A few things worth knowing:
   the TOML header is the app's `[default_table]` (pass `table="mom"` or
   `table=["remind", "mom"]` for another, or `header=False` for just the
   key lines), and the CLI lines are exactly the flags `add_arguments`
-  adds -- a bool is a bare flag, everything else shows its `<METAVAR>`
+  adds -- a bool is the bare flag that *changes* its default (`--flag`, or
+  `--no-flag` for a default of true), everything else shows its `<METAVAR>`
   (pass the same `overrides=` you gave `add_arguments` if you renamed
   one).
 - **No default means a placeholder.** A setting that starts out unset

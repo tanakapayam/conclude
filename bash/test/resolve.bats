@@ -1,6 +1,7 @@
 #!/usr/bin/env bats
-# conclude_resolve has no spec/*.json fixture -- CLI-argument parsing and
-# real file-path wiring are language-specific by nature (this is exactly
+# conclude_resolve has no spec/*.json fixture of its own -- what a command
+# line gives a setting is spec/cli.json (see cli.bats), but real file-path
+# wiring is language-specific by nature (this is exactly
 # the seam argparse/Node's parser/this bash parser all differ at), unlike
 # every other module in this test suite. These are hand-written
 # integration checks instead, covering the precedence chain this module

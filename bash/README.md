@@ -71,7 +71,7 @@ as an exported variable (`MYAPP_HOST`, `MYAPP_PORT`, ...), and, from each
 
 | Setting `filter_col` of app `myapp` | Derived name |
 | ----------------------------------- | ------------ |
-| CLI flag                            | `--filter-col VALUE` or `--filter-col=VALUE` (a bare `--debug` for a bool) |
+| CLI flag                            | `--filter-col VALUE` or `--filter-col=VALUE` (a bare `--debug` for a bool, `--no-debug` to turn it off) |
 | Environment variable                | `MYAPP_FILTER_COL` |
 | Config-file key                     | `filter_col` under `[myapp]` |
 

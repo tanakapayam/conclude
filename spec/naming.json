@@ -1,6 +1,6 @@
 {
-  "spec_version": 1,
-  "description": "Each layer's conventional name for a setting, derived from the app name and the setting's key.",
+  "spec_version": 2,
+  "description": "Each layer's conventional name for a setting, derived from the app name and the setting's key. `cli_negated_flag` is the flag that turns a `bool` off: `--no-` and the flag name, except that a flag name that already starts with `no-` and continues drops that `no-` instead.",
   "cases": [
     {
       "name": "plain",
@@ -8,6 +8,7 @@
       "key": "retries",
       "env_var": "REMIND_RETRIES",
       "cli_flag": "--retries",
+      "cli_negated_flag": "--no-retries",
       "config_key": "retries"
     },
     {
@@ -16,6 +17,7 @@
       "key": "filter_col",
       "env_var": "REMIND_FILTER_COL",
       "cli_flag": "--filter-col",
+      "cli_negated_flag": "--no-filter-col",
       "config_key": "filter_col"
     },
     {
@@ -24,6 +26,7 @@
       "key": "foo_bar",
       "env_var": "MY_APP_FOO_BAR",
       "cli_flag": "--foo-bar",
+      "cli_negated_flag": "--no-foo-bar",
       "config_key": "foo_bar"
     },
     {
@@ -32,6 +35,7 @@
       "key": "x",
       "env_var": "MY_APP_X",
       "cli_flag": "--x",
+      "cli_negated_flag": "--no-x",
       "config_key": "x"
     },
     {
@@ -40,6 +44,7 @@
       "key": "x",
       "env_var": "MY_APP_X",
       "cli_flag": "--x",
+      "cli_negated_flag": "--no-x",
       "config_key": "x"
     },
     {
@@ -48,6 +53,7 @@
       "key": "a-b",
       "env_var": "MYAPP_A_B",
       "cli_flag": "--a-b",
+      "cli_negated_flag": "--no-a-b",
       "config_key": "a-b"
     },
     {
@@ -56,6 +62,7 @@
       "key": "foo",
       "env_var": "_123APP_FOO",
       "cli_flag": "--foo",
+      "cli_negated_flag": "--no-foo",
       "config_key": "foo"
     },
     {
@@ -64,6 +71,7 @@
       "key": "x1",
       "env_var": "APP2_X1",
       "cli_flag": "--x1",
+      "cli_negated_flag": "--no-x1",
       "config_key": "x1"
     },
     {
@@ -72,6 +80,7 @@
       "key": "Retries",
       "env_var": "REMIND_RETRIES",
       "cli_flag": "--Retries",
+      "cli_negated_flag": "--no-Retries",
       "config_key": "Retries"
     },
     {
@@ -80,6 +89,7 @@
       "key": "x",
       "env_var": "CAF__X",
       "cli_flag": "--x",
+      "cli_negated_flag": "--no-x",
       "config_key": "x"
     },
     {
@@ -88,7 +98,44 @@
       "key": "a_b_c",
       "env_var": "MY_APP_A_B_C",
       "cli_flag": "--a-b-c",
+      "cli_negated_flag": "--no-a-b-c",
       "config_key": "a_b_c"
+    },
+    {
+      "name": "a negative name is negated by dropping its no",
+      "app": "remind",
+      "key": "no_color",
+      "env_var": "REMIND_NO_COLOR",
+      "cli_flag": "--no-color",
+      "cli_negated_flag": "--color",
+      "config_key": "no_color"
+    },
+    {
+      "name": "only one no is dropped",
+      "app": "remind",
+      "key": "no_no_color",
+      "env_var": "REMIND_NO_NO_COLOR",
+      "cli_flag": "--no-no-color",
+      "cli_negated_flag": "--no-color",
+      "config_key": "no_no_color"
+    },
+    {
+      "name": "a bare no is negated by stacking",
+      "app": "remind",
+      "key": "no",
+      "env_var": "REMIND_NO",
+      "cli_flag": "--no",
+      "cli_negated_flag": "--no-no",
+      "config_key": "no"
+    },
+    {
+      "name": "a no that is not a whole word is negated by stacking",
+      "app": "remind",
+      "key": "nope",
+      "env_var": "REMIND_NOPE",
+      "cli_flag": "--nope",
+      "cli_negated_flag": "--no-nope",
+      "config_key": "nope"
     }
   ]
 }

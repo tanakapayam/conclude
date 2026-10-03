@@ -427,6 +427,7 @@ describe("the command line", () => {
       "filter-col": { type: "string" },
       port: { type: "string" },
       debug: { type: "boolean" },
+      "no-debug": { type: "boolean" },
     });
   });
 
@@ -440,6 +441,27 @@ describe("the command line", () => {
     const resolved = config.resolve({ environ: {}, cli: parsed.cli, shorthand: parsed.positionals[0] ?? null });
     assert.equal(resolved.filterCol, "a");
     assert.equal(resolved.debug, true);
+  });
+
+  test("a bool's flag is true, its negation false, and the last one given wins", () => {
+    assert.deepEqual(config.parseArgs(["--debug"]).cli, { debug: true });
+    assert.deepEqual(config.parseArgs(["--no-debug"]).cli, { debug: false });
+    assert.deepEqual(config.parseArgs(["--debug", "--no-debug"]).cli, { debug: false });
+    assert.deepEqual(config.parseArgs(["--no-debug", "--debug"]).cli, { debug: true });
+    assert.equal(config.resolve({ environ: { T_DEBUG: "true" }, cli: config.parseArgs(["--no-debug"]).cli }).debug, false);
+  });
+
+  test("a setting whose key starts with no is turned off by dropping the no", () => {
+    const quiet = defineConfig(isolated("t", { noColor: false }));
+    assert.deepEqual(quiet.parseArgs(["--no-color"]).cli, { noColor: true });
+    assert.deepEqual(quiet.parseArgs(["--color"]).cli, { noColor: false });
+  });
+
+  test("two settings that claim the same flag are an error", () => {
+    const clash = defineConfig(isolated("t", { cache: false, noCache: false }));
+    assert.throws(() => clash.parseArgs([]), /both claim the CLI flag --no-cache/);
+    assert.throws(() => clash.cliOptions(), /both claim/);
+    assert.throws(() => clash.formatCli(), /both claim/);
   });
 
   test("flags that were not given are no opinion", () => {
@@ -485,4 +507,23 @@ describe("formatInvocation", () => {
     const words = spawnSync("sh", ["-c", `for w in ${line}; do printf '%s\\0' "$w"; done`], { encoding: "utf8" }).stdout.split("\0").slice(0, -1);
     assert.deepEqual(config.resolve({ environ: {}, cli: config.parseArgs(words).cli }), original);
   });
+});
+
+describe("an invocation parses back", () => {
+  const config = defineConfig(isolated("t", { cache: true, debug: false, noColor: false, verbose: bool() }));
+  const cases: Record<string, unknown>[] = [
+    {},
+    { cache: false },
+    { debug: true },
+    { noColor: true },
+    { cache: false, debug: true, noColor: true, verbose: true },
+    { cache: true, debug: false, noColor: false, verbose: false },
+  ];
+  for (const cli of cases) {
+    test(`to the configuration it was written from: ${JSON.stringify(cli)}`, () => {
+      const resolved = config.resolve({ environ: {}, cli });
+      const argv = config.formatInvocation(resolved).split(" ").filter(Boolean);
+      assert.deepEqual(config.resolve({ environ: {}, cli: config.parseArgs(argv).cli }), resolved);
+    });
+  }
 });

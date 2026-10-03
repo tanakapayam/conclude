@@ -5,7 +5,6 @@
 
 import { homedir } from "node:os";
 import { dirname, join } from "node:path";
-import { parseArgs } from "node:util";
 import type { ParseArgsOptionsConfig } from "node:util";
 
 import { ConfigFileError, SetupError } from "./errors.ts";
@@ -17,7 +16,8 @@ import {
   resolveConfigTable,
 } from "./config.ts";
 import { resolve as resolveLayers } from "./merge.ts";
-import { cliFlagName, envVarName } from "./naming.ts";
+import { cliOptions as deriveCliOptions, parseCli } from "./cli.ts";
+import { envVarName } from "./naming.ts";
 import { developerStatus, dotenvStatus, formatDeveloperStatus, formatDotenvStatus } from "./local.ts";
 import type { DeveloperStatus, DotenvStatus } from "./local.ts";
 import { normalize } from "./settings.ts";
@@ -128,9 +128,9 @@ export interface Config<S extends Declarations> {
   formatCli(options?: CliFormatOptions<S>): string;
   /** A standalone command line that reproduces resolved settings: what a `--print-invocation` flag prints. */
   formatInvocation(resolved: Readonly<Partial<Record<keyof S & string, unknown>>>, options?: InvocationFormatOptions<S>): string;
-  /** The derived flags in the shape `node:util`'s `parseArgs` takes (`filterCol` is `filter-col`). */
+  /** The derived flags in the shape `node:util`'s `parseArgs` takes (`filterCol` is `filter-col`), each `bool` with its `no-` negation. */
   cliOptions(): ParseArgsOptionsConfig;
-  /** Parse arguments with `node:util`'s `parseArgs`: the derived flags plus any `extra` options. */
+  /** Parse arguments with `node:util`'s `parseArgs`: the derived flags plus any `extra` options. A `bool`'s `--flag` is `true` and its `--no-flag` is `false`; the last one given wins. */
   parseArgs(argv?: readonly string[], extra?: { readonly options?: ParseArgsOptionsConfig; readonly allowPositionals?: boolean }): ParsedArgs<S>;
 }
 
@@ -237,10 +237,7 @@ export function defineConfig<S extends Declarations>(options: ConfigOptions<S>):
     };
   };
 
-  const cliOptions = (): ParseArgsOptionsConfig =>
-    Object.fromEntries(
-      settings.map((s) => [cliFlagName(s.key).slice(2), { type: s.type === "bool" ? "boolean" : "string" } as const]),
-    );
+  const cliOptions = (): ParseArgsOptionsConfig => deriveCliOptions(settings);
 
   return {
     name,
@@ -318,21 +315,13 @@ export function defineConfig<S extends Declarations>(options: ConfigOptions<S>):
     cliOptions,
 
     parseArgs(argv = process.argv.slice(2), extra = {}) {
-      const { values, positionals } = parseArgs({
-        args: [...argv],
-        options: { ...extra.options, ...cliOptions() },
-        allowPositionals: extra.allowPositionals ?? true,
-        strict: true,
-      });
-      const cli: Record<string, unknown> = {};
-      for (const s of settings) {
-        const value = values[cliFlagName(s.key).slice(2)];
-        if (value !== undefined) cli[apiKeys.get(s.key) as string] = value;
-      }
+      const parsed = parseCli(settings, argv, extra);
+      const cli = toApi(parsed.cli);
+      for (const key of Object.keys(cli)) if (cli[key] === undefined) delete cli[key];
       return {
         cli: cli as Partial<Record<keyof S & string, unknown>>,
-        values: values as ParsedArgs<S>["values"],
-        positionals,
+        values: parsed.values as ParsedArgs<S>["values"],
+        positionals: parsed.positionals,
       };
     },
   };

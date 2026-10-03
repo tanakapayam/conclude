@@ -4,12 +4,14 @@ render a standalone command line that reproduces a resolved settings
 dict, with no env vars or config files needed to get back to the same
 result.
 
-Each formatter returns one of three things for a given value:
+Each formatter returns one of four things for a given value:
 
 - a plain string -- the flag's value, already shell-quoted, to render
   as ``--flag=<string>``
 - ``""`` (the empty string) -- render the flag bare, with no ``=value``
   at all (used for a boolean that's on)
+- :data:`NEGATED` -- render the flag's negation instead, ``--no-flag``
+  (used for a boolean that's off)
 - ``None`` -- don't render this flag at all
 """
 
@@ -19,25 +21,39 @@ from typing import Any, TypeAlias
 
 from conclude.infer import Opt
 
-Formatter: TypeAlias = Callable[[Any], str | None]
+
+class _Negated:
+    """The type of :data:`NEGATED`."""
+
+    def __repr__(self) -> str:
+        return "NEGATED"
+
+
+NEGATED = _Negated()
+"""What a formatter returns to have the flag's negation written
+(``--no-flag``) in place of ``--flag=<value>``. A singleton rather
+than a string, so no formatted value can ever be mistaken for it.
+"""
+
+Formatter: TypeAlias = Callable[[Any], "str | None | _Negated"]
 """A function taking a resolved value and returning the CLI-token text
-to render it as (see the module docstring above for the three possible
+to render it as (see the module docstring above for the four possible
 shapes) -- what :func:`infer_formatter` picks one of, and what an
 override in ``formatters=``/``overrides=`` is expected to be.
 """
 
 
-def format_bool(value: bool) -> str | None:
-    """``True`` -> the bare flag; ``False`` -> not rendered at all.
+def format_bool(value: bool | None) -> str | None | _Negated:
+    """``True`` -> the bare flag; ``False`` -> its negation
+    (``--no-flag``); ``None`` (an unset ``opt(bool)``) -> not rendered.
 
     This matches :meth:`conclude.App.add_arguments`'s inferred
-    ``store_true``-only CLI flags for a bool setting: there's no
-    inferred CLI syntax to explicitly turn a bool back to ``False``,
-    so a setting whose *default* is ``True`` can't be faithfully
-    reproduced this way -- write your own formatter (and, likely, your
-    own CLI flag) for that one instead of relying on inference.
+    negatable CLI flags for a bool setting, so a bool is reproducible
+    both ways -- including one whose *default* is ``True``.
     """
-    return "" if value else None
+    if value is None:
+        return None
+    return "" if value else NEGATED
 
 
 def format_scalar(value: Any) -> str:

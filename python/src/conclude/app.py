@@ -68,6 +68,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, cast
 
+from conclude.cli import NegatableFlag, cli_flags
 from conclude.developer import DeveloperStatus
 from conclude.developer import developer_status as _developer_status
 from conclude.developer import load_developer_config as _load_developer_config
@@ -76,10 +77,10 @@ from conclude.env import dotenv_status as _dotenv_status
 from conclude.env import load_env as _load_env
 from conclude.files import load_config_files as _load_config_files
 from conclude.files import resolve_config_table as _resolve_config_table
-from conclude.formatters import Formatter, infer_formatters
+from conclude.formatters import NEGATED, Formatter, infer_formatters
 from conclude.infer import Caster, Opt, effective_defaults, infer_casters
 from conclude.merge import resolve as _resolve
-from conclude.naming import cli_flag_name, config_key_name, env_var_name
+from conclude.naming import cli_flag_name, cli_negated_flag_name, config_key_name, env_var_name
 from conclude.paths import default_config_home_path, default_config_system_path
 from conclude.templates import env_value, plain_text, toml_value
 from conclude.tomlwrite import toml_key, toml_string
@@ -354,8 +355,11 @@ class App:
         line up 1:1 with ``defaults``, whatever the flag looks like),
         and the action is inferred from the setting's type: a
         bool-typed setting (a bare ``False``/``True`` default, or
-        ``opt(bool)``) becomes a ``store_true`` flag; anything else
-        becomes a plain value flag.
+        ``opt(bool)``) becomes a :class:`conclude.cli.NegatableFlag` --
+        ``--flag`` sets it true, ``--no-flag`` sets it false (see
+        :func:`conclude.naming.cli_negated_flag_name`), and giving
+        neither leaves it unset; anything else becomes a plain value
+        flag. Raises ``ValueError`` if two settings claim the same flag.
 
         ``overrides[key]``, if given, is a dict of kwargs merged into
         that one flag's ``add_argument()`` call -- typically a
@@ -367,16 +371,20 @@ class App:
         """
         overrides = overrides or {}
         skip = set(skip)
+        cli_flags(self.defaults, skip)  # raises on a flag two settings claim
         for key, default in self.defaults.items():
             if key in skip:
                 continue
             type_ = default.type if isinstance(default, Opt) else type(default)
             kwargs: dict[str, Any] = {"dest": key, "default": None}
             if type_ is bool:
-                kwargs["action"] = "store_true"
+                kwargs["action"] = NegatableFlag
+                kwargs["negated"] = cli_negated_flag_name(key)
             else:
                 kwargs["metavar"] = key.upper()
             kwargs.update(overrides.get(key, {}))
+            if kwargs.get("action") is not NegatableFlag:
+                kwargs.pop("negated", None)  # an override swapped the action out
             parser.add_argument(cli_flag_name(key), **kwargs)
 
     def build_arg_parser(self, **parser_kwargs: Any) -> argparse.ArgumentParser:
@@ -594,6 +602,10 @@ class App:
         confusing resolved setup, or turning one into a documented,
         copy-pasteable command.
 
+        A ``bool`` is written as the bare flag when it's on and as its
+        negation (``--no-flag``) when it's off, so one whose default is
+        true reproduces too.
+
         A setting whose resolved value equals its default (see
         ``compare_defaults``) is left out entirely: omitting a flag
         already reproduces that default on its own, so there's nothing
@@ -640,6 +652,7 @@ class App:
         always_include = set(always_include)
         skip = set(skip)
 
+        cli_flags(self.defaults, skip)  # raises on a flag two settings claim
         parts = [prog] if prog else []
         for key in self.defaults:
             if key in skip:
@@ -649,6 +662,9 @@ class App:
                 continue
             rendered = formatters[key](value)
             if rendered is None:
+                continue
+            if rendered is NEGATED:
+                parts.append(cli_negated_flag_name(key))
                 continue
             flag = cli_flag_name(key)
             parts.append(flag if rendered == "" else f"{flag}={rendered}")
@@ -791,7 +807,10 @@ class App:
             --debug             (default: false)
             --timeout <TIMEOUT> (default: 30)
 
-        A bool setting is a bare flag; every other setting shows its
+        A bool setting is a bare flag -- the one that *changes* its
+        default (``--flag`` for a default of false, ``--no-flag`` for
+        true, and ``--flag | --no-flag`` for an unset ``opt(bool)``,
+        which either one changes); every other setting shows its
         metavar (``key.upper()``, or ``overrides[key]["metavar"]`` --
         pass the same ``overrides`` you gave :meth:`add_arguments` so
         the two agree; nothing else in it, ``help`` included, is
@@ -804,12 +823,19 @@ class App:
         listed.
         """
         overrides = overrides or {}
+        cli_flags(self.defaults, skip)  # raises on a flag two settings claim
         rows: list[tuple[str, str]] = []
         for key, value, formatter in self._template_rows(skip, formatters, defaults):
             declared = self.defaults[key]
             type_ = declared.type if isinstance(declared, Opt) else type(declared)
             flag = cli_flag_name(key)
-            if type_ is not bool:
+            if type_ is bool:
+                negated = cli_negated_flag_name(key)
+                if value is None:
+                    flag = f"{flag} | {negated}"
+                elif value:
+                    flag = negated
+            else:
                 metavar = overrides.get(key, {}).get("metavar", key.upper())
                 metavars = [metavar] if isinstance(metavar, str) else list(metavar)
                 flag += " " + " ".join(f"<{name}>" for name in metavars)

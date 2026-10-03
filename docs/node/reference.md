@@ -62,8 +62,8 @@ the `snake_case` form used in config files, the environment and flags.
 | `formatToml(options?)` | A config-file template. |
 | `formatCli(options?)` | A CLI reference, one aligned line per flag. |
 | `formatInvocation(resolved, options?)` | A standalone command line that reproduces resolved settings (what a `--print-invocation` flag prints). |
-| `cliOptions()` | The derived flags in the shape `util.parseArgs` takes (`retryLimit` is `retry-limit`). |
-| `parseArgs(argv?, extra?)` | Parse arguments with `util.parseArgs`: the derived flags plus `extra.options`. |
+| `cliOptions()` | The derived flags in the shape `util.parseArgs` takes (`retryLimit` is `retry-limit`), each `bool` with its `no-` negation as an option of its own. |
+| `parseArgs(argv?, extra?)` | Parse arguments with `util.parseArgs`: the derived flags plus `extra.options`. A `bool`'s `--flag` is `true`, its `--no-flag` is `false`, and the last one given wins. |
 
 `resolve(options?)` takes a `ResolveOptions`:
 
@@ -113,7 +113,8 @@ canonical key.
 
 | Area | Functions and types |
 | --- | --- |
-| Names | `envVarName(app, key)`, `cliFlagName(key)`, `configKeyName(key)` |
+| Names | `envVarName(app, key)`, `cliFlagName(key)`, `cliNegatedFlagName(key)`, `configKeyName(key)` |
+| Command line | `cliFlags(settings, skip?)` with `CliFlag` (every flag the settings get, a `bool`'s negation included; throws if two settings claim one), `cliOptions(settings)`, `parseCli(settings, argv, extra?)` with `ParsedCli` |
 | Casting | `cast(type, value)`, `castBool`, `castNumber`, `castStr`, `castList`, `decodeBackslashEscapes` |
 | `.env` | `parseDotenv(text)`, `loadDotenv(path)` |
 | Layering | `resolve(settings, layers)` with `Layers` (`config`, `env`, `developer`, `cli`) |

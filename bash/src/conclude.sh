@@ -36,7 +36,7 @@ fi
 
 # The version of this file; the release workflow checks it against the
 # release tag and CHANGELOG.md, so bump all three together.
-CONCLUDE_VERSION="0.2.0"
+CONCLUDE_VERSION="0.3.0"
 
 # --- naming (spec/naming.json) --------------------------------------------
 #
@@ -66,6 +66,20 @@ _conclude_sanitize_ident() {
 conclude_cli_flag_name() {
   local key=$1
   printf -- '--%s' "${key//_/-}"
+}
+
+# conclude_cli_negated_flag_name KEY
+#   The flag that turns a bool off: "debug" -> "--no-debug". A flag that
+#   already starts with "no-" and continues drops it instead of stacking
+#   another, so the opposite of --no-color (the setting no_color) is
+#   --color, not --no-no-color.
+conclude_cli_negated_flag_name() {
+  local name=${1//_/-}
+  if [[ $name == no-?* ]]; then
+    printf -- '--%s' "${name#no-}"
+  else
+    printf -- '--no-%s' "$name"
+  fi
 }
 
 # conclude_env_var_name APP KEY
@@ -918,6 +932,101 @@ conclude_resolve_developer_file() {
   return 0
 }
 
+# _conclude_cli_flag_map APP FLAGVAR NEGVAR [SKIPVAR] -- every CLI flag the
+#   app's settings get. FLAGVAR (an associative array) maps each flag to the
+#   key that owns it: a setting's own flag, and for a bool its negation too;
+#   NEGVAR marks which of those flags are negations. SKIPVAR, if given, names
+#   an associative array of keys to leave out. Returns 1 if two settings
+#   claim the same flag (a bool "cache" and a setting "no_cache" both want
+#   --no-cache), rather than letting one silently shadow the other.
+_conclude_cli_flag_map() {
+  local app=$1
+  local -n _cd_fm_flags=$2 _cd_fm_neg=$3
+  local -A _cd_fm_none=()
+  local -n _cd_fm_skip=${4:-_cd_fm_none}
+  local -a _cd_fm_keys
+  _conclude_ordered_keys "$app" _cd_fm_keys
+  local _cd_fm_key _cd_fm_flag _cd_fm_i
+  local -a _cd_fm_mine
+  for _cd_fm_key in "${_cd_fm_keys[@]}"; do
+    [[ -v _cd_fm_skip[$_cd_fm_key] ]] && continue
+    _cd_fm_mine=("$(conclude_cli_flag_name "$_cd_fm_key")")
+    if [[ ${_CONCLUDE_TYPES["$app:$_cd_fm_key"]} == bool ]]; then
+      _cd_fm_mine+=("$(conclude_cli_negated_flag_name "$_cd_fm_key")")
+    fi
+    for _cd_fm_i in "${!_cd_fm_mine[@]}"; do
+      _cd_fm_flag=${_cd_fm_mine[$_cd_fm_i]}
+      if [[ -v _cd_fm_flags[$_cd_fm_flag] ]]; then
+        printf 'conclude: settings %q and %q both claim the CLI flag %s\n' \
+          "${_cd_fm_flags[$_cd_fm_flag]}" "$_cd_fm_key" "$_cd_fm_flag" >&2
+        return 1
+      fi
+      _cd_fm_flags[$_cd_fm_flag]=$_cd_fm_key
+      ((_cd_fm_i == 1)) && _cd_fm_neg[$_cd_fm_flag]=1
+    done
+  done
+  return 0
+}
+
+# conclude_parse_cli APP OUTVAR ARGS...
+#   What a command line gives each setting (spec/cli.json): OUTVAR, an
+#   associative array the caller declares, ends up with one entry per
+#   setting a flag mentioned -- a bool as "true" (--flag) or "false"
+#   (--no-flag), anything else as the raw text, which casting turns into a
+#   value later -- and no entry for a setting no flag mentioned (a key's
+#   presence is an opinion, its absence none). The last flag given for a
+#   setting wins. Accepts --flag VALUE and --flag=VALUE for a value flag
+#   and nothing abbreviated. Returns 1, OUTVAR unspecified, on a flag no
+#   setting claims, a value on a bool's flag or its negation, a value flag
+#   with no value, or two settings claiming one flag.
+conclude_parse_cli() {
+  local app=$1 outvar=$2
+  shift 2
+  local -n _cd_pc_out=$outvar
+  local -A _cd_pc_flags=() _cd_pc_neg=()
+  _conclude_cli_flag_map "$app" _cd_pc_flags _cd_pc_neg || return 1
+  local _cd_pc_arg _cd_pc_name _cd_pc_val _cd_pc_has_val _cd_pc_key
+  while (($#)); do
+    _cd_pc_arg=$1
+    if [[ $_cd_pc_arg == *=* ]]; then
+      _cd_pc_name=${_cd_pc_arg%%=*}
+      _cd_pc_val=${_cd_pc_arg#*=}
+      _cd_pc_has_val=1
+    else
+      _cd_pc_name=$_cd_pc_arg
+      _cd_pc_has_val=0
+    fi
+    if [[ ! -v _cd_pc_flags[$_cd_pc_name] ]]; then
+      printf 'conclude: unrecognized argument %q\n' "$_cd_pc_arg" >&2
+      return 1
+    fi
+    _cd_pc_key=${_cd_pc_flags[$_cd_pc_name]}
+    if [[ ${_CONCLUDE_TYPES["$app:$_cd_pc_key"]} == bool ]]; then
+      if ((_cd_pc_has_val)); then
+        printf 'conclude: %q takes no value\n' "$_cd_pc_name" >&2
+        return 1
+      fi
+      if [[ -v _cd_pc_neg[$_cd_pc_name] ]]; then
+        _cd_pc_out[$_cd_pc_key]=false
+      else
+        _cd_pc_out[$_cd_pc_key]=true
+      fi
+      shift
+    elif ((_cd_pc_has_val)); then
+      _cd_pc_out[$_cd_pc_key]=$_cd_pc_val
+      shift
+    else
+      if (($# < 2)); then
+        printf 'conclude: %q needs a value\n' "$_cd_pc_name" >&2
+        return 1
+      fi
+      _cd_pc_out[$_cd_pc_key]=$2
+      shift 2
+    fi
+  done
+  return 0
+}
+
 # conclude_resolve APP [options] -- ARGS...
 #   Wires together everything above into the real precedence chain:
 #     defaults < user config < project config(+siblings) < env
@@ -1085,46 +1194,8 @@ conclude_resolve() {
 
   # --- CLI layer: one pass over the remaining args -----------------------
   local -A cli=()
-  local -A flag_to_key=()
-  local key flag
-  for key in "${keys[@]}"; do
-    flag_to_key[$(conclude_cli_flag_name "$key")]=$key
-  done
-  local arg name val has_val
-  while (($#)); do
-    arg=$1
-    if [[ $arg == *=* ]]; then
-      name=${arg%%=*}
-      val=${arg#*=}
-      has_val=1
-    else
-      name=$arg
-      has_val=0
-    fi
-    if [[ ! -v flag_to_key[$name] ]]; then
-      printf 'conclude: unrecognized argument %q\n' "$arg" >&2
-      return 1
-    fi
-    key=${flag_to_key[$name]}
-    if [[ ${_CONCLUDE_TYPES["$app:$key"]} == bool ]]; then
-      if ((has_val)); then
-        printf 'conclude: %q takes no value (a bare flag turns it on; there is no way to turn a bool off)\n' "$name" >&2
-        return 1
-      fi
-      cli[$key]=true
-      shift
-    elif ((has_val)); then
-      cli[$key]=$val
-      shift
-    else
-      if (($# < 2)); then
-        printf 'conclude: %q needs a value\n' "$name" >&2
-        return 1
-      fi
-      cli[$key]=$2
-      shift 2
-    fi
-  done
+  local key
+  conclude_parse_cli "$app" cli "$@" || return 1
 
   # --- env layer: real env vars, falling back to nothing (no .env yet) ---
   local -A env=()
@@ -1654,15 +1725,27 @@ conclude_format_cli() {
   local -A skip_set=() default_overrides=() metavar_overrides=()
   _conclude_parse_template_opts "$@" || return 1
 
+  local -A _cd_fc_flags=() _cd_fc_neg=()
+  _conclude_cli_flag_map "$app" _cd_fc_flags _cd_fc_neg skip_set || return 1
+
   local -a keys
   _conclude_ordered_keys "$app" keys
   local -a flags=() texts=()
-  local key type flag default_text text
+  local key type flag default_text text negated
   for key in "${keys[@]}"; do
     [[ -v skip_set[$key] ]] && continue
     type=${_CONCLUDE_TYPES["$app:$key"]}
     flag=$(conclude_cli_flag_name "$key")
-    if [[ $type != bool ]]; then
+    if [[ $type == bool ]]; then
+      # The flag that *changes* the default: --flag for false, --no-flag
+      # for true, and either one when there is no default to change.
+      negated=$(conclude_cli_negated_flag_name "$key")
+      if default_text=$(_conclude_effective_default "$app" "$key" default_overrides); then
+        [[ $(conclude_cast bool "$default_text" 2>/dev/null) == true ]] && flag=$negated
+      else
+        flag="$flag | $negated"
+      fi
+    else
       local -a metavars=()
       if [[ -v metavar_overrides[$key] ]]; then
         IFS=',' read -ra metavars <<<"${metavar_overrides[$key]}"
@@ -1820,9 +1903,9 @@ _conclude_shquote() {
 #   conclude_cast's canonical text form ("" for unset/None, matching
 #   conclude_merge_layers' own convention). Reproduces that run as a
 #   standalone, POSIX-shell-quoted command line: a setting is written
-#   as `--flag=value` (or a bare `--flag` for an on boolean) unless it
-#   equals its default; an off boolean, or an unset value equal to its
-#   (also-unset) default, is never written.
+#   as `--flag=value` (a bare `--flag` for an on boolean, `--no-flag` for
+#   an off one) unless it equals its default; an unset value is never
+#   written.
 conclude_format_invocation() {
   local app=$1 resolvedvar=$2 outvar=$3
   shift 3
@@ -1859,6 +1942,9 @@ conclude_format_invocation() {
     esac
   done
 
+  local -A _cd_fi_flags=() _cd_fi_neg=()
+  _conclude_cli_flag_map "$app" _cd_fi_flags _cd_fi_neg skip_set || return 1
+
   local -a keys parts=()
   _conclude_ordered_keys "$app" keys
   [[ -n $prog ]] && parts+=("$prog")
@@ -1878,12 +1964,20 @@ conclude_format_invocation() {
     fi
     type=${_CONCLUDE_TYPES["$app:$key"]}
     if [[ $type == bool ]]; then
-      [[ $value == true ]] || continue
-      rendered=""
+      # On is the bare flag, off is its negation, unset (no opinion) is left out.
+      if [[ $value == true ]]; then
+        rendered=""
+        flag=$(conclude_cli_flag_name "$key")
+      elif [[ $value == false ]]; then
+        parts+=("$(conclude_cli_negated_flag_name "$key")")
+        continue
+      else
+        continue
+      fi
     else
       rendered=$(_conclude_shquote "$value")
+      flag=$(conclude_cli_flag_name "$key")
     fi
-    flag=$(conclude_cli_flag_name "$key")
     if [[ -z $rendered ]]; then
       parts+=("$flag")
     else

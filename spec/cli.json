@@ -1,0 +1,771 @@
+{
+  "spec_version": 2,
+  "description": "What the command line gives a setting. `settings` are declared as usual; `argv` is the arguments after the program name. `expect` is the CLI layer: an object with one entry for each setting a flag set, by key -- a boolean as `true` (its flag) or `false` (its negation), anything else as the raw text, which casting turns into a value later -- and no entry for a setting no flag mentioned. `error: true` means the settings cannot be given flags or the arguments cannot be parsed: two settings that claim the same flag (with `argv` empty), an unknown flag, a value on a boolean's flag or its negation, a negation of a setting that is not a boolean, a value flag with no value. A boolean's flag is `--flag` and its negation is the `cli_negated_flag` of `naming.json`; the last flag given for a setting wins.",
+  "cases": [
+    {
+      "name": "no arguments leave every setting unset",
+      "settings": [
+        {
+          "key": "host",
+          "type": "str",
+          "default": "localhost"
+        },
+        {
+          "key": "port",
+          "type": "int",
+          "default": 8080
+        },
+        {
+          "key": "debug",
+          "type": "bool",
+          "default": false
+        },
+        {
+          "key": "verbose",
+          "type": "bool",
+          "default": null
+        },
+        {
+          "key": "filter_col",
+          "type": "str",
+          "default": null
+        }
+      ],
+      "argv": [],
+      "expect": {}
+    },
+    {
+      "name": "a bare flag is true for a boolean",
+      "settings": [
+        {
+          "key": "host",
+          "type": "str",
+          "default": "localhost"
+        },
+        {
+          "key": "port",
+          "type": "int",
+          "default": 8080
+        },
+        {
+          "key": "debug",
+          "type": "bool",
+          "default": false
+        },
+        {
+          "key": "verbose",
+          "type": "bool",
+          "default": null
+        },
+        {
+          "key": "filter_col",
+          "type": "str",
+          "default": null
+        }
+      ],
+      "argv": [
+        "--debug"
+      ],
+      "expect": {
+        "debug": true
+      }
+    },
+    {
+      "name": "the negation is false",
+      "settings": [
+        {
+          "key": "host",
+          "type": "str",
+          "default": "localhost"
+        },
+        {
+          "key": "port",
+          "type": "int",
+          "default": 8080
+        },
+        {
+          "key": "debug",
+          "type": "bool",
+          "default": false
+        },
+        {
+          "key": "verbose",
+          "type": "bool",
+          "default": null
+        },
+        {
+          "key": "filter_col",
+          "type": "str",
+          "default": null
+        }
+      ],
+      "argv": [
+        "--no-debug"
+      ],
+      "expect": {
+        "debug": false
+      }
+    },
+    {
+      "name": "a boolean with no default takes both forms",
+      "settings": [
+        {
+          "key": "host",
+          "type": "str",
+          "default": "localhost"
+        },
+        {
+          "key": "port",
+          "type": "int",
+          "default": 8080
+        },
+        {
+          "key": "debug",
+          "type": "bool",
+          "default": false
+        },
+        {
+          "key": "verbose",
+          "type": "bool",
+          "default": null
+        },
+        {
+          "key": "filter_col",
+          "type": "str",
+          "default": null
+        }
+      ],
+      "argv": [
+        "--no-verbose"
+      ],
+      "expect": {
+        "verbose": false
+      }
+    },
+    {
+      "name": "the last of a flag and its negation wins: the negation",
+      "settings": [
+        {
+          "key": "host",
+          "type": "str",
+          "default": "localhost"
+        },
+        {
+          "key": "port",
+          "type": "int",
+          "default": 8080
+        },
+        {
+          "key": "debug",
+          "type": "bool",
+          "default": false
+        },
+        {
+          "key": "verbose",
+          "type": "bool",
+          "default": null
+        },
+        {
+          "key": "filter_col",
+          "type": "str",
+          "default": null
+        }
+      ],
+      "argv": [
+        "--debug",
+        "--no-debug"
+      ],
+      "expect": {
+        "debug": false
+      }
+    },
+    {
+      "name": "the last of a flag and its negation wins: the flag",
+      "settings": [
+        {
+          "key": "host",
+          "type": "str",
+          "default": "localhost"
+        },
+        {
+          "key": "port",
+          "type": "int",
+          "default": 8080
+        },
+        {
+          "key": "debug",
+          "type": "bool",
+          "default": false
+        },
+        {
+          "key": "verbose",
+          "type": "bool",
+          "default": null
+        },
+        {
+          "key": "filter_col",
+          "type": "str",
+          "default": null
+        }
+      ],
+      "argv": [
+        "--no-debug",
+        "--debug"
+      ],
+      "expect": {
+        "debug": true
+      }
+    },
+    {
+      "name": "a value flag takes --flag=value",
+      "settings": [
+        {
+          "key": "host",
+          "type": "str",
+          "default": "localhost"
+        },
+        {
+          "key": "port",
+          "type": "int",
+          "default": 8080
+        },
+        {
+          "key": "debug",
+          "type": "bool",
+          "default": false
+        },
+        {
+          "key": "verbose",
+          "type": "bool",
+          "default": null
+        },
+        {
+          "key": "filter_col",
+          "type": "str",
+          "default": null
+        }
+      ],
+      "argv": [
+        "--host=example.com"
+      ],
+      "expect": {
+        "host": "example.com"
+      }
+    },
+    {
+      "name": "a value flag takes the next argument",
+      "settings": [
+        {
+          "key": "host",
+          "type": "str",
+          "default": "localhost"
+        },
+        {
+          "key": "port",
+          "type": "int",
+          "default": 8080
+        },
+        {
+          "key": "debug",
+          "type": "bool",
+          "default": false
+        },
+        {
+          "key": "verbose",
+          "type": "bool",
+          "default": null
+        },
+        {
+          "key": "filter_col",
+          "type": "str",
+          "default": null
+        }
+      ],
+      "argv": [
+        "--host",
+        "example.com"
+      ],
+      "expect": {
+        "host": "example.com"
+      }
+    },
+    {
+      "name": "a value is handed over raw, not cast",
+      "settings": [
+        {
+          "key": "host",
+          "type": "str",
+          "default": "localhost"
+        },
+        {
+          "key": "port",
+          "type": "int",
+          "default": 8080
+        },
+        {
+          "key": "debug",
+          "type": "bool",
+          "default": false
+        },
+        {
+          "key": "verbose",
+          "type": "bool",
+          "default": null
+        },
+        {
+          "key": "filter_col",
+          "type": "str",
+          "default": null
+        }
+      ],
+      "argv": [
+        "--port=9000"
+      ],
+      "expect": {
+        "port": "9000"
+      }
+    },
+    {
+      "name": "the last occurrence of a value flag wins",
+      "settings": [
+        {
+          "key": "host",
+          "type": "str",
+          "default": "localhost"
+        },
+        {
+          "key": "port",
+          "type": "int",
+          "default": 8080
+        },
+        {
+          "key": "debug",
+          "type": "bool",
+          "default": false
+        },
+        {
+          "key": "verbose",
+          "type": "bool",
+          "default": null
+        },
+        {
+          "key": "filter_col",
+          "type": "str",
+          "default": null
+        }
+      ],
+      "argv": [
+        "--host=a",
+        "--host=b"
+      ],
+      "expect": {
+        "host": "b"
+      }
+    },
+    {
+      "name": "an empty value is a value",
+      "settings": [
+        {
+          "key": "host",
+          "type": "str",
+          "default": "localhost"
+        },
+        {
+          "key": "port",
+          "type": "int",
+          "default": 8080
+        },
+        {
+          "key": "debug",
+          "type": "bool",
+          "default": false
+        },
+        {
+          "key": "verbose",
+          "type": "bool",
+          "default": null
+        },
+        {
+          "key": "filter_col",
+          "type": "str",
+          "default": null
+        }
+      ],
+      "argv": [
+        "--host="
+      ],
+      "expect": {
+        "host": ""
+      }
+    },
+    {
+      "name": "an underscored key is a hyphenated flag",
+      "settings": [
+        {
+          "key": "host",
+          "type": "str",
+          "default": "localhost"
+        },
+        {
+          "key": "port",
+          "type": "int",
+          "default": 8080
+        },
+        {
+          "key": "debug",
+          "type": "bool",
+          "default": false
+        },
+        {
+          "key": "verbose",
+          "type": "bool",
+          "default": null
+        },
+        {
+          "key": "filter_col",
+          "type": "str",
+          "default": null
+        }
+      ],
+      "argv": [
+        "--filter-col=x"
+      ],
+      "expect": {
+        "filter_col": "x"
+      }
+    },
+    {
+      "name": "flags may come in any order and mix",
+      "settings": [
+        {
+          "key": "host",
+          "type": "str",
+          "default": "localhost"
+        },
+        {
+          "key": "port",
+          "type": "int",
+          "default": 8080
+        },
+        {
+          "key": "debug",
+          "type": "bool",
+          "default": false
+        },
+        {
+          "key": "verbose",
+          "type": "bool",
+          "default": null
+        },
+        {
+          "key": "filter_col",
+          "type": "str",
+          "default": null
+        }
+      ],
+      "argv": [
+        "--no-verbose",
+        "--host=h",
+        "--debug"
+      ],
+      "expect": {
+        "verbose": false,
+        "host": "h",
+        "debug": true
+      }
+    },
+    {
+      "name": "a negative name is on bare",
+      "settings": [
+        {
+          "key": "no_color",
+          "type": "bool",
+          "default": false
+        }
+      ],
+      "argv": [
+        "--no-color"
+      ],
+      "expect": {
+        "no_color": true
+      }
+    },
+    {
+      "name": "a negative name is off by dropping the no",
+      "settings": [
+        {
+          "key": "no_color",
+          "type": "bool",
+          "default": false
+        }
+      ],
+      "argv": [
+        "--color"
+      ],
+      "expect": {
+        "no_color": false
+      }
+    },
+    {
+      "name": "an unknown flag is an error",
+      "settings": [
+        {
+          "key": "host",
+          "type": "str",
+          "default": "localhost"
+        },
+        {
+          "key": "port",
+          "type": "int",
+          "default": 8080
+        },
+        {
+          "key": "debug",
+          "type": "bool",
+          "default": false
+        },
+        {
+          "key": "verbose",
+          "type": "bool",
+          "default": null
+        },
+        {
+          "key": "filter_col",
+          "type": "str",
+          "default": null
+        }
+      ],
+      "argv": [
+        "--nope"
+      ],
+      "error": true
+    },
+    {
+      "name": "a boolean takes no value",
+      "settings": [
+        {
+          "key": "host",
+          "type": "str",
+          "default": "localhost"
+        },
+        {
+          "key": "port",
+          "type": "int",
+          "default": 8080
+        },
+        {
+          "key": "debug",
+          "type": "bool",
+          "default": false
+        },
+        {
+          "key": "verbose",
+          "type": "bool",
+          "default": null
+        },
+        {
+          "key": "filter_col",
+          "type": "str",
+          "default": null
+        }
+      ],
+      "argv": [
+        "--debug=true"
+      ],
+      "error": true
+    },
+    {
+      "name": "a negation takes no value",
+      "settings": [
+        {
+          "key": "host",
+          "type": "str",
+          "default": "localhost"
+        },
+        {
+          "key": "port",
+          "type": "int",
+          "default": 8080
+        },
+        {
+          "key": "debug",
+          "type": "bool",
+          "default": false
+        },
+        {
+          "key": "verbose",
+          "type": "bool",
+          "default": null
+        },
+        {
+          "key": "filter_col",
+          "type": "str",
+          "default": null
+        }
+      ],
+      "argv": [
+        "--no-debug=1"
+      ],
+      "error": true
+    },
+    {
+      "name": "a value flag has no negation",
+      "settings": [
+        {
+          "key": "host",
+          "type": "str",
+          "default": "localhost"
+        },
+        {
+          "key": "port",
+          "type": "int",
+          "default": 8080
+        },
+        {
+          "key": "debug",
+          "type": "bool",
+          "default": false
+        },
+        {
+          "key": "verbose",
+          "type": "bool",
+          "default": null
+        },
+        {
+          "key": "filter_col",
+          "type": "str",
+          "default": null
+        }
+      ],
+      "argv": [
+        "--no-host"
+      ],
+      "error": true
+    },
+    {
+      "name": "a value flag needs its value",
+      "settings": [
+        {
+          "key": "host",
+          "type": "str",
+          "default": "localhost"
+        },
+        {
+          "key": "port",
+          "type": "int",
+          "default": 8080
+        },
+        {
+          "key": "debug",
+          "type": "bool",
+          "default": false
+        },
+        {
+          "key": "verbose",
+          "type": "bool",
+          "default": null
+        },
+        {
+          "key": "filter_col",
+          "type": "str",
+          "default": null
+        }
+      ],
+      "argv": [
+        "--host"
+      ],
+      "error": true
+    },
+    {
+      "name": "a boolean and a boolean named no_ plus its name collide",
+      "settings": [
+        {
+          "key": "cache",
+          "type": "bool",
+          "default": false
+        },
+        {
+          "key": "no_cache",
+          "type": "bool",
+          "default": false
+        }
+      ],
+      "argv": [],
+      "error": true
+    },
+    {
+      "name": "a boolean's negation collides with a value flag",
+      "settings": [
+        {
+          "key": "cache",
+          "type": "bool",
+          "default": false
+        },
+        {
+          "key": "no_cache",
+          "type": "str",
+          "default": null
+        }
+      ],
+      "argv": [],
+      "error": true
+    },
+    {
+      "name": "a value flag collides with a negative name's negation",
+      "settings": [
+        {
+          "key": "cache",
+          "type": "str",
+          "default": null
+        },
+        {
+          "key": "no_cache",
+          "type": "bool",
+          "default": false
+        }
+      ],
+      "argv": [],
+      "error": true
+    },
+    {
+      "name": "two keys that make the same flag collide",
+      "settings": [
+        {
+          "key": "a_b",
+          "type": "str",
+          "default": null
+        },
+        {
+          "key": "a-b",
+          "type": "str",
+          "default": null
+        }
+      ],
+      "argv": [],
+      "error": true
+    },
+    {
+      "name": "value flags that only look alike do not collide",
+      "settings": [
+        {
+          "key": "cache",
+          "type": "str",
+          "default": null
+        },
+        {
+          "key": "no_cache",
+          "type": "str",
+          "default": null
+        }
+      ],
+      "argv": [
+        "--cache=a",
+        "--no-cache=b"
+      ],
+      "expect": {
+        "cache": "a",
+        "no_cache": "b"
+      }
+    }
+  ]
+}

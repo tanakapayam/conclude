@@ -50,8 +50,8 @@ Everything else here exists to *produce* those layers:
 - :func:`conclude.opt` -- the default to write for an optional
   setting (one that starts out ``None``) so caster/formatter inference
   still knows its real type, e.g. ``opt(str)``.
-- :mod:`conclude.naming` -- ``cli_flag_name()``/``env_var_name()``/
-  ``config_key_name()``, deriving each layer's conventional name for a
+- :mod:`conclude.naming` -- ``cli_flag_name()``/``cli_negated_flag_name()``/
+  ``env_var_name()``/``config_key_name()``, deriving each layer's conventional name for a
   setting from its Python key alone.
 - :mod:`conclude.infer` -- ``infer_caster()``/``infer_casters()``,
   picking a caster from a default's type (or an ``opt()``-wrapped
@@ -62,7 +62,7 @@ Everything else here exists to *produce* those layers:
   ``infer_formatters()``, the inverse of :mod:`conclude.infer`: picking
   the CLI-token rendering for a resolved value from its type, for
   ``App.format_invocation()``. ``conclude.Formatter`` names that shape:
-  ``Callable[[Any], str | None]``.
+  ``Callable[[Any], str | None | NEGATED]``.
 - :mod:`conclude.casters` -- the small, reusable value casters
   (bool, int-or-None, float-or-None, positive int, str-or-None,
   comma-separated list, backslash-escaped string) that inference picks
@@ -111,6 +111,7 @@ from conclude.casters import (
     cast_str_or_none,
     decode_backslash_escapes,
 )
+from conclude.cli import NegatableFlag
 from conclude.developer import DeveloperState, DeveloperStatus, developer_status
 from conclude.env import DotenvState, DotenvStatus, dotenv_status, load_dotenv, load_env
 from conclude.files import (
@@ -124,6 +125,7 @@ from conclude.files import (
     table_exists,
 )
 from conclude.formatters import (
+    NEGATED,
     Formatter,
     format_bool,
     format_list,
@@ -133,11 +135,11 @@ from conclude.formatters import (
 )
 from conclude.infer import Caster, Opt, effective_defaults, infer_caster, infer_casters, opt
 from conclude.merge import resolve
-from conclude.naming import cli_flag_name, config_key_name, env_var_name
+from conclude.naming import cli_flag_name, cli_negated_flag_name, config_key_name, env_var_name
 from conclude.paths import default_config_home_path, default_config_system_path
 from conclude.tomlwrite import toml_key, toml_string
 
-__version__ = "1.0.2"
+__version__ = "1.1.0"
 
 __all__ = [
     "App",
@@ -146,6 +148,8 @@ __all__ = [
     "opt",
     "Caster",
     "Formatter",
+    "NEGATED",
+    "NegatableFlag",
     "effective_defaults",
     "infer_caster",
     "infer_casters",
@@ -155,6 +159,7 @@ __all__ = [
     "infer_formatter",
     "infer_formatters",
     "cli_flag_name",
+    "cli_negated_flag_name",
     "config_key_name",
     "env_var_name",
     "cast_bool",

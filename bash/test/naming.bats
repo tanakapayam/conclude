@@ -1,6 +1,7 @@
 #!/usr/bin/env bats
 # Runs every case in spec/naming.json against conclude_cli_flag_name,
-# conclude_env_var_name and conclude_config_key_name. jq is a test-only
+# conclude_cli_negated_flag_name, conclude_env_var_name and
+# conclude_config_key_name. jq is a test-only
 # dependency -- conclude.sh itself never uses it.
 
 setup() {
@@ -13,13 +14,14 @@ setup() {
   local count
   count=$(jq '.cases | length' "$file")
 
-  local i name app key expected_env expected_cli expected_config actual failures=0
+  local i name app key expected_env expected_cli expected_negated expected_config actual failures=0
   for ((i = 0; i < count; i++)); do
     name=$(jq -r ".cases[$i].name" "$file")
     app=$(jq -r ".cases[$i].app" "$file")
     key=$(jq -r ".cases[$i].key" "$file")
     expected_env=$(jq -r ".cases[$i].env_var" "$file")
     expected_cli=$(jq -r ".cases[$i].cli_flag" "$file")
+    expected_negated=$(jq -r ".cases[$i].cli_negated_flag" "$file")
     expected_config=$(jq -r ".cases[$i].config_key" "$file")
 
     actual=$(conclude_env_var_name "$app" "$key")
@@ -31,6 +33,12 @@ setup() {
     actual=$(conclude_cli_flag_name "$key")
     if [[ $actual != "$expected_cli" ]]; then
       echo "[$name] cli_flag: expected '$expected_cli', got '$actual'"
+      failures=$((failures + 1))
+    fi
+
+    actual=$(conclude_cli_negated_flag_name "$key")
+    if [[ $actual != "$expected_negated" ]]; then
+      echo "[$name] cli_negated_flag: expected '$expected_negated', got '$actual'"
       failures=$((failures + 1))
     fi
 

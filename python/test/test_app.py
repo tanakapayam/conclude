@@ -1,10 +1,11 @@
 import argparse
+import shlex
 from pathlib import Path
 
 import pytest
 
 import conclude
-from conclude import App
+from conclude import App, opt
 
 DEFAULTS = {
     "filename": conclude.opt(str),
@@ -648,3 +649,86 @@ def test_describe_sources_project_row_disabled_hides_the_pattern():
     app = App("myapp", DEFAULTS, config_cwd_path=None)
     row = [line for line in app.describe_sources().splitlines() if "project config" in line][0]
     assert row.endswith("  disabled")
+
+
+def test_a_bool_flag_has_a_negation_and_the_last_one_wins():
+    app = App("myapp", {"debug": False, "cache": True, "quiet": opt(bool)})
+    parser = app.build_arg_parser(prog="myapp")
+    assert parser.parse_args([]).cache is None  # neither flag: no opinion
+    assert parser.parse_args(["--no-cache"]).cache is False
+    assert parser.parse_args(["--cache"]).cache is True
+    assert parser.parse_args(["--no-quiet", "--quiet"]).quiet is True
+    assert parser.parse_args(["--quiet", "--no-quiet"]).quiet is False
+
+
+def test_a_negative_name_is_turned_off_by_dropping_the_no():
+    parser = App("myapp", {"no_color": False}).build_arg_parser(prog="myapp")
+    assert parser.parse_args(["--no-color"]).no_color is True
+    assert parser.parse_args(["--color"]).no_color is False
+
+
+def test_the_flag_and_its_negation_share_one_help_line():
+    help_text = App("myapp", {"debug": False}).build_arg_parser(prog="myapp").format_help()
+    assert "--debug, --no-debug" in help_text
+
+
+def test_an_override_can_swap_a_bool_flag_for_its_own_action():
+    app = App("myapp", {"debug": False})
+    parser = argparse.ArgumentParser(prog="myapp")
+    app.add_arguments(parser, overrides={"debug": {"action": "store_true"}})
+    assert parser.parse_args(["--debug"]).debug is True
+    with pytest.raises(SystemExit):
+        parser.parse_args(["--no-debug"])
+
+
+def test_settings_that_claim_the_same_flag_are_an_error_everywhere_flags_are_derived():
+    app = App("myapp", {"cache": False, "no_cache": False})
+    for call in (
+        lambda: app.build_arg_parser(),
+        lambda: app.format_cli(),
+        lambda: app.format_invocation({"cache": True, "no_cache": False}),
+    ):
+        with pytest.raises(ValueError, match="both claim the CLI flag --no-cache"):
+            call()
+
+
+def test_a_skipped_setting_claims_no_flag():
+    app = App("myapp", {"cache": False, "no_cache": False})
+    parser = argparse.ArgumentParser(prog="myapp")
+    app.add_arguments(parser, skip={"no_cache"})  # no_cache is hand-built by the app
+    assert parser.parse_args(["--no-cache"]).cache is False
+
+
+def test_format_invocation_reproduces_a_bool_that_defaults_to_true():
+    app = App("myapp", {"cache": True, "debug": False})
+    assert app.format_invocation({"cache": False, "debug": True}, prog="myapp") == (
+        "myapp --no-cache --debug"
+    )
+    assert app.format_invocation({"cache": True, "debug": False}) == ""
+
+
+ROUND_TRIP_DEFAULTS = {"cache": True, "debug": False, "no_color": False, "verbose": opt(bool)}
+
+
+@pytest.mark.parametrize(
+    "cli",
+    [
+        {},
+        {"cache": False},
+        {"debug": True},
+        {"no_color": True},
+        {"cache": False, "debug": True, "no_color": True, "verbose": True},
+        {"cache": True, "debug": False, "no_color": False, "verbose": False},
+    ],
+    ids=str,
+)
+def test_an_invocation_parses_back_to_the_configuration_it_was_written_from(cli):
+    app = App("myapp", ROUND_TRIP_DEFAULTS)
+    resolved = app.resolve(cli)
+    argv = shlex.split(app.format_invocation(resolved))
+    parsed = {
+        key: value
+        for key, value in vars(app.build_arg_parser(prog="myapp").parse_args(argv)).items()
+        if value is not None
+    }
+    assert app.resolve(parsed) == resolved

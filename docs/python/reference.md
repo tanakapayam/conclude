@@ -47,7 +47,7 @@ Computed from the fields above, never stored: `resolved_defaults`,
 
 | Group             | Method                            | Purpose                                                                                         |
 | ----------------- | --------------------------------- | ----------------------------------------------------------------------------------------------- |
-| Build a CLI       | `add_arguments(parser)`           | Add one inferred flag per setting to an existing `ArgumentParser` (`skip=`/`overrides=`).       |
+| Build a CLI       | `add_arguments(parser)`           | Add one inferred flag per setting -- and a `--no-` negation for every `bool` -- to an existing `ArgumentParser` (`skip=`/`overrides=`). |
 |                   | `build_arg_parser()`              | A fresh parser with those flags already added.                                                  |
 |                   | `add_print_invocation_argument()` | Add the conventional `--print-invocation` flag ([section 5](guide.md#5-debugging-and-documentation---print-invocation)).                                        |
 | Read a layer      | `load_env()`                      | The environment layer (and the `.env` fallback, if opted in).                                   |
@@ -98,6 +98,7 @@ Computed from the fields above, never stored: `resolved_defaults`,
 | Function                     | Purpose                                                     |
 | ---------------------------- | ----------------------------------------------------------- |
 | `cli_flag_name(key)`         | `"filter_col"` -> `"--filter-col"`.                         |
+| `cli_negated_flag_name(key)` | The flag that turns a `bool` off: `"debug"` -> `"--no-debug"`; `"no_color"` -> `"--color"`. |
 | `env_var_name(app_name, key)` | `("remind", "retries")` -> `"REMIND_RETRIES"`.             |
 | `config_key_name(key)`       | The config-file key -- just `key` itself.                   |
 
@@ -116,9 +117,16 @@ Computed from the fields above, never stored: `resolved_defaults`,
 | ------------------------------------ | ------------------------------------------------------ |
 | `infer_formatter(type_)`             | The formatter for a bare type.                         |
 | `infer_formatters(defaults, overrides)` | A formatter for every key, with your overrides applied. |
-| `format_bool(value)`                 | `True` -> the bare flag; `False` -> not rendered.      |
+| `format_bool(value)`                 | `True` -> the bare flag; `False` -> `NEGATED` (the flag's `--no-` form); `None` -> not rendered. |
 | `format_list(value)`                 | Shell-quoted, comma-joined.                            |
 | `format_scalar(value)`               | Shell-quoted `str(value)`.                             |
+
+**`conclude.cli`** -- the command-line surface derived from the settings.
+
+| Name | Purpose |
+| ---- | ------- |
+| `NegatableFlag` | The argparse action behind a `bool`'s flag: `--flag` stores `True`, `--no-flag` stores `False`, last one wins, neither leaves it unset. |
+| `cli_flags(defaults, skip=())` | `(key, flag, is_negation)` for every flag the settings get; raises `ValueError` if two settings claim one. |
 
 **`conclude.casters`** -- reusable casters (inference picks from these; they also work written out by hand).
 

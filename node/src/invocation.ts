@@ -4,7 +4,8 @@
  * `--print-invocation` flag.
  */
 
-import { cliFlagName } from "./naming.ts";
+import { cliFlags } from "./cli.ts";
+import { cliFlagName, cliNegatedFlagName } from "./naming.ts";
 import { plainText } from "./render.ts";
 import type { Setting, SettingType, SettingValue } from "./types.ts";
 
@@ -32,10 +33,13 @@ function same(a: unknown, b: unknown): boolean {
   return a === b;
 }
 
-/** The flag's value text: `""` for a bare flag, `null` for "do not write it". */
-function render(type: SettingType, value: unknown): string | null {
+/** What `render` returns for a `bool` that is off: write the flag's negation. */
+const NEGATED = Symbol("negated");
+
+/** The flag's value text: `""` for a bare flag, `NEGATED` for its negation, `null` for "do not write it". */
+function render(type: SettingType, value: unknown): string | null | typeof NEGATED {
   if (value === null || value === undefined) return null;
-  if (type === "bool") return value === true ? "" : null;
+  if (type === "bool") return value === true ? "" : NEGATED;
   if (Array.isArray(value)) return shellQuote(value.join(","));
   return shellQuote(plainText(type, value as SettingValue) ?? "");
 }
@@ -43,13 +47,15 @@ function render(type: SettingType, value: unknown): string | null {
 /**
  * A standalone command line that reproduces `resolved` (canonical keys) with no
  * environment variables, config files or shorthand needed. A setting equal to its
- * default is left out, so is a boolean that is off, and so is an unset value.
+ * default is left out, and so is an unset value; a boolean is the bare flag when it
+ * is on and its negation (`--no-flag`) when it is off.
  */
 export function formatInvocation(
   settings: readonly Setting[],
   resolved: Readonly<Record<string, unknown>>,
   options: InvocationOptions = {},
 ): string {
+  cliFlags(settings, options.skip); // throws on a flag two settings claim
   const skip = new Set(options.skip ?? []);
   const always = new Set(options.alwaysInclude ?? []);
   const compare = options.compareDefaults;
@@ -61,6 +67,10 @@ export function formatInvocation(
     if (same(value, baseline) && !always.has(setting.key)) continue;
     const rendered = render(setting.type, value);
     if (rendered === null) continue;
+    if (rendered === NEGATED) {
+      parts.push(cliNegatedFlagName(setting.key));
+      continue;
+    }
     const flag = cliFlagName(setting.key);
     parts.push(rendered === "" ? flag : `${flag}=${rendered}`);
   }

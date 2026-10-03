@@ -24,3 +24,13 @@ export function cliFlagName(key: string): string {
 export function configKeyName(key: string): string {
   return key;
 }
+
+/**
+ * The flag that turns a `bool` off: `"debug"` is `"--no-debug"`. A flag that
+ * already starts with `no-` drops it instead of stacking another: the opposite
+ * of `--no-color` (the setting `no_color`) is `--color`, not `--no-no-color`.
+ */
+export function cliNegatedFlagName(key: string): string {
+  const name = key.replaceAll("_", "-");
+  return name.startsWith("no-") && name.length > 3 ? `--${name.slice(3)}` : `--no-${name}`;
+}

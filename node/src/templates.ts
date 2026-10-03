@@ -1,6 +1,7 @@
 /** Generated environment, TOML and CLI templates (docs/concept.md, section 11). */
 
-import { cliFlagName, configKeyName, envVarName } from "./naming.ts";
+import { cliFlags } from "./cli.ts";
+import { cliFlagName, cliNegatedFlagName, configKeyName, envVarName } from "./naming.ts";
 import { envValue, plainText, tomlKey, tomlValue } from "./render.ts";
 import type { Setting, SettingValue } from "./types.ts";
 
@@ -72,12 +73,21 @@ export function formatToml(settings: readonly Setting[], options: TemplateOption
   return lines.join("\n");
 }
 
-/** One aligned `--flag <METAVAR>  (default: ...)` line per setting. */
+/**
+ * One aligned `--flag <METAVAR>  (default: ...)` line per setting. A `bool` is the
+ * flag that changes its default: `--flag` for false, `--no-flag` for true, and
+ * `--flag | --no-flag` for one with no default.
+ */
 export function formatCli(settings: readonly Setting[], options: TemplateOptions): string {
+  cliFlags(settings, options.skip); // throws on a flag two settings claim
   const metavars = options.metavars ?? {};
   const table = rows(settings, options).map(({ setting, value }) => {
     let flag = cliFlagName(setting.key);
-    if (setting.type !== "bool") {
+    if (setting.type === "bool") {
+      const negated = cliNegatedFlagName(setting.key);
+      if (value === null) flag = `${flag} | ${negated}`;
+      else if (value === true) flag = negated;
+    } else {
       const override = Object.hasOwn(metavars, setting.key) ? metavars[setting.key] : undefined;
       const names =
         override === undefined

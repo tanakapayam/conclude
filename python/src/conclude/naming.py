@@ -14,6 +14,20 @@ def cli_flag_name(key: str) -> str:
     return "--" + key.replace("_", "-")
 
 
+def cli_negated_flag_name(key: str) -> str:
+    """The flag that turns a ``bool`` setting off: ``\"debug\"`` ->
+    ``\"--no-debug\"``.
+
+    A flag that already starts with ``no-`` drops it instead of
+    stacking another: the opposite of ``--no-color`` (the setting
+    ``no_color``) is ``--color``, not ``--no-no-color``.
+    """
+    name = key.replace("_", "-")
+    if name.startswith("no-") and len(name) > 3:
+        return "--" + name[3:]
+    return "--no-" + name
+
+
 def env_var_name(app_name: str, key: str) -> str:
     """``("remind", "retries")`` -> ``"REMIND_RETRIES"``.
 

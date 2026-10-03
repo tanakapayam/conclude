@@ -18,6 +18,7 @@ import {
   cast,
   checkGuard,
   cliFlagName,
+  cliNegatedFlagName,
   configKeyName,
   envVarName,
   defineConfig,
@@ -28,6 +29,7 @@ import {
   loadConfigFiles,
   loadDotenv,
   matchesGitIgnoreRules,
+  parseCli,
   parseConfigTable,
   resolve,
   resolveConfigTable,
@@ -35,7 +37,7 @@ import {
 import type { Setting, SettingType, TemplateOptions } from "../src/index.ts";
 
 const SPEC = new URL("../../spec/", import.meta.url);
-const SPEC_VERSION = 1;
+const SPEC_VERSION = 2;
 
 interface Fixture<Case> {
   spec_version: number;
@@ -75,11 +77,12 @@ function buildTree(root: string, files: Record<string, string | null>): void {
 // --- naming --------------------------------------------------------------------------
 
 describe("naming.json", () => {
-  interface Case { name: string; app: string; key: string; env_var: string; cli_flag: string; config_key: string }
+  interface Case { name: string; app: string; key: string; env_var: string; cli_flag: string; cli_negated_flag: string; config_key: string }
   for (const c of load<Case>("naming.json").cases) {
     test(c.name, () => {
       assert.equal(envVarName(c.app, c.key), c.env_var);
       assert.equal(cliFlagName(c.key), c.cli_flag);
+      assert.equal(cliNegatedFlagName(c.key), c.cli_negated_flag);
       assert.equal(configKeyName(c.key), c.config_key);
     });
   }
@@ -311,6 +314,16 @@ describe("invocation.json", () => {
   }
 });
 
+describe("cli.json", () => {
+  interface Case { name: string; settings: Setting[]; argv: string[]; expect?: Record<string, unknown>; error?: boolean }
+  for (const c of load<Case>("cli.json").cases) {
+    test(c.name, () => {
+      if (c.error) assert.throws(() => parseCli(c.settings, c.argv));
+      else assert.deepEqual(parseCli(c.settings, c.argv).cli, c.expect);
+    });
+  }
+});
+
 describe("sources.json", () => {
   interface Case {
     name: string;
@@ -358,6 +371,7 @@ describe("sources.json", () => {
 describe("the fixture set", () => {
   const RUN_HERE = [
     "casters.json",
+    "cli.json",
     "config_layers.json",
     "config_tables.json",
     "dotenv.json",

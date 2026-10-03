@@ -1,6 +1,6 @@
 {
-  "spec_version": 1,
-  "description": "Reproducing a resolved configuration as a standalone command line (`format_invocation` / `formatInvocation`). `resolved` is the settings by key; `options` are `prog` (the program name, written first), `always_include` and `skip` (keys), and `compare_defaults` (a complete map of what counts as each key's default; it replaces the declared defaults). A setting is written as `--flag=value` -- or a bare `--flag` for a boolean that is on -- unless it equals its default; a boolean that is off, and an unset value, are never written. Values are POSIX shell-quoted. `expect` is the whole command line.",
+  "spec_version": 2,
+  "description": "Reproducing a resolved configuration as a standalone command line (`format_invocation` / `formatInvocation`). `resolved` is the settings by key; `options` are `prog` (the program name, written first), `always_include` and `skip` (keys), and `compare_defaults` (a complete map of what counts as each key's default; it replaces the declared defaults). A setting is written as `--flag=value` -- or a bare `--flag` for a boolean that is on and its negation (`--no-flag`) for one that is off -- unless it equals its default; an unset value is never written. Values are POSIX shell-quoted. `expect` is the whole command line.",
   "cases": [
     {
       "name": "a run that matches the defaults writes nothing",
@@ -182,7 +182,83 @@
       "expect": "--debug"
     },
     {
-      "name": "a boolean that is off is never written, even when forced",
+      "name": "a boolean that is off but defaults to on is its negation",
+      "settings": [
+        {
+          "key": "cache",
+          "type": "bool",
+          "default": true
+        }
+      ],
+      "resolved": {
+        "cache": false
+      },
+      "expect": "--no-cache"
+    },
+    {
+      "name": "a boolean that is on and defaults to on is left out",
+      "settings": [
+        {
+          "key": "cache",
+          "type": "bool",
+          "default": true
+        }
+      ],
+      "resolved": {
+        "cache": true
+      },
+      "expect": ""
+    },
+    {
+      "name": "a negative name is turned on bare and off by dropping the no",
+      "settings": [
+        {
+          "key": "no_color",
+          "type": "bool",
+          "default": false
+        },
+        {
+          "key": "no_pager",
+          "type": "bool",
+          "default": true
+        }
+      ],
+      "resolved": {
+        "no_color": true,
+        "no_pager": false
+      },
+      "expect": "--no-color --pager"
+    },
+    {
+      "name": "a boolean with no default, turned off, is its negation",
+      "settings": [
+        {
+          "key": "verbose",
+          "type": "bool",
+          "default": null
+        }
+      ],
+      "resolved": {
+        "verbose": false
+      },
+      "expect": "--no-verbose"
+    },
+    {
+      "name": "a boolean with no default, left unset, is left out",
+      "settings": [
+        {
+          "key": "verbose",
+          "type": "bool",
+          "default": null
+        }
+      ],
+      "resolved": {
+        "verbose": null
+      },
+      "expect": ""
+    },
+    {
+      "name": "a boolean that is off is its negation, when forced",
       "settings": [
         {
           "key": "host",
@@ -228,7 +304,7 @@
           "debug"
         ]
       },
-      "expect": ""
+      "expect": "--no-debug"
     },
     {
       "name": "a list is comma-joined",

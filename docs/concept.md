@@ -8,8 +8,8 @@ is the reference implementation ([guide](python/guide.md), [reference](python/re
 other implementations follow this document and pass the conformance
 fixtures in [`spec/`](../spec/README.md).
 
-This is **concept version 1**, which is **spec version 1** of the fixtures
-(the Python package 1.0.x implements it). The words "must" and "may" are
+This is **concept version 2**, which is **spec version 2** of the fixtures
+(the Python, TypeScript and Bash packages implement it). The words "must" and "may" are
 meant literally: a conforming implementation does what "must" says, and
 anything a sentence does not require is up to the implementation.
 
@@ -46,13 +46,13 @@ Settings are ordered (declaration order): generated templates keep it.
 
 ## 3. Declaring settings
 
-| Token | Meaning | Casts to |
-| --- | --- | --- |
-| `bool` | a flag | true or false |
-| `int` | a number that prints as a whole number when it is one | an integer, or a fraction if that is what was given |
-| `float` | a number | a number |
-| `str` | text | text, or unset |
-| `list` | a list of text items | a list of text, or unset |
+| Token   | Meaning                                               | Casts to                                            |
+| ------- | ----------------------------------------------------- | --------------------------------------------------- |
+| `bool`  | a flag                                                | true or false                                       |
+| `int`   | a number that prints as a whole number when it is one | an integer, or a fraction if that is what was given |
+| `float` | a number                                              | a number                                            |
+| `str`   | text                                                  | text, or unset                                      |
+| `list`  | a list of text items                                  | a list of text, or unset                            |
 
 The declared type -- not the runtime shape of the default -- decides the
 caster and how a default is rendered in a template. A language that can
@@ -69,9 +69,22 @@ from `3.0` (JavaScript) must let the author say it.
   setting may override its name.
 - **CLI flag**: `--` and the key with `_` replaced by `-`; case is kept.
   `filter_col` is `--filter-col`.
+- **Negated CLI flag** (a `bool` only): the flag that sets it to false.
+  It is `--no-` and the flag's name: `debug` is `--no-debug`. A flag name
+  that already starts with `no-` and continues drops that `no-` instead of
+  stacking another, so the opposite of `--no-color` (the setting `no_color`)
+  is `--color`, not `--no-no-color`. A setting that is not a `bool` has no
+  negation.
 
 Two application names that differ only in which non-identifier character
 they use sanitize to the same prefix; that is a known, accepted limit.
+
+No two settings may claim the same CLI flag, counting each `bool`'s negation
+as a flag of its own: a `bool` `cache` and a setting `no_cache` both want
+`--no-cache` (and, if `no_cache` is a `bool` too, `--cache` as well), and
+two keys that differ only in `_` against `-` want one flag. An implementation
+reports this as an error when the flags are derived, not by silently letting
+one setting shadow the other (`cli.json`).
 
 ## 5. Casting (`casters.json`)
 
@@ -128,11 +141,11 @@ process environment, with an optional `.env` file beneath it (section 8);
 
 ## 7. Config files (`config_layers.json`, `config_tables.json`)
 
-| Layer | Location | On by default? |
-| --- | --- | --- |
-| system | `/etc/<name>/config.toml` | no (opt-in) |
-| user | `~/.config/<name>/config.toml` | yes |
-| project | `./.config.toml` | yes |
+| Layer            | Location                           | On by default?                                                  |
+| ---------------- | ---------------------------------- | --------------------------------------------------------------- |
+| system           | `/etc/<name>/config.toml`          | no (opt-in)                                                     |
+| user             | `~/.config/<name>/config.toml`     | yes                                                             |
+| project          | `./.config.toml`                   | yes                                                             |
 | project siblings | `./.config.*.toml`, sorted by name | yes (the pattern is configurable; it can be switched off alone) |
 
 The files are merged key by key in that order, so a key set in a later file
@@ -279,8 +292,10 @@ and every other control character (U+0000-U+001F and U+007F) as `\uXXXX` with
 upper-case hexadecimal. An unset setting is `# key =`. An empty table path
 means no header.
 
-**CLI reference**: one line per flag. A `bool` is the bare flag; any other
-setting is the flag and `<METAVAR>` (the key upper-cased, or the override).
+**CLI reference**: one line per setting. A `bool` is the bare flag that
+*changes* its default -- `--flag` when the default is false, the negation
+(`--no-flag`) when it is true, and `--flag | --no-flag` when it has none, as
+either one changes that; any other setting is the flag and `<METAVAR>` (the key upper-cased, or the override).
 Each line ends with `(default: text)`, where an unset default reads `none`,
 an empty text reads `""`, and the flag column is padded to the widest so the
 `(default:` parts align, with one space after it.
@@ -289,10 +304,10 @@ an empty text reads `""`, and the flag column is padded to the widest so the
 a standalone command line that gets back to it with no environment variables,
 config files or shorthand -- what a `--print-invocation` flag prints. Settings
 are visited in declaration order, and each is written as `--flag=value` (a bare
-`--flag` for a `bool` that is on) unless it is left out. A setting is left out
+`--flag` for a `bool` that is on, and its negation `--no-flag` for one that is
+off) unless it is left out. A setting is left out
 when it equals its default -- omitting a flag already reproduces its default, and
-this covers every setting automatically -- when it is a `bool` that is off (there
-is no flag to turn one off), when its value is unset, or when the caller skips it
+this covers every setting automatically -- when its value is unset, or when the caller skips it
 (`skip` beats `alwaysInclude`, which forces a setting that equals its default to
 be written). `compareDefaults` replaces what counts as each setting's default for
 one call, for a setting whose effective default is substituted after resolving.
@@ -328,55 +343,93 @@ for an inactive file.
 
 ## 13. Conformance
 
-An implementation conforms to spec version 1 when it passes every fixture in
+An implementation conforms to spec version 2 when it passes every fixture in
 [`spec/`](../spec/README.md). The fixtures are data, not code; each
 implementation writes a small adapter from a fixture file to its own API.
 
-| Fixture | Sections | What it covers |
-| --- | --- | --- |
-| `naming.json` | 4 | environment variable, flag and key names |
-| `casters.json` | 3, 5 | casting for every declared type |
-| `dotenv.json` | 8 | the `.env` dialect |
-| `merge.json` | 6 | precedence, no-opinion, empty values, errors |
-| `config_layers.json` | 7 | merging system, user, project and sibling files; tables |
-| `config_tables.json` | 7 | table selection and the positional shorthand |
-| `templates.json` | 11 | the environment, TOML and CLI templates |
-| `invocation.json` | 11 | reproducing a resolved configuration as a command line |
-| `gitignore.json` | 9 | rule matching, judged by real `git` |
-| `guard.json` | 9 | the guard's checks and reasons |
-| `sources.json` | 10, 12 | the report of which sources are in play |
+| Fixture              | Sections | What it covers                                          |
+| -------------------- | -------: | ------------------------------------------------------- |
+| `naming.json`        |        4 | environment variable, flag, negated flag and key names  |
+| `casters.json`       |     3, 5 | casting for every declared type                         |
+| `dotenv.json`        |        8 | the `.env` dialect                                      |
+| `merge.json`         |        6 | precedence, no-opinion, empty values, errors            |
+| `config_layers.json` |        7 | merging system, user, project and sibling files; tables |
+| `config_tables.json` |        7 | table selection and the positional shorthand            |
+| `templates.json`     |       11 | the environment, TOML and CLI templates                 |
+| `invocation.json`    |       11 | reproducing a resolved configuration as a command line  |
+| `cli.json`           |        4 | what a command line gives a setting; flag collisions    |
+| `gitignore.json`     |        9 | rule matching, judged by real `git`                     |
+| `guard.json`         |        9 | the guard's checks and reasons                          |
+| `sources.json`       |   10, 12 | the report of which sources are in play                 |
 
 Not yet covered by fixtures: how each binding reads its manifest (section 10;
 the wording of a `not configured` reason is binding-specific), and how a
-language exposes flags to its CLI parser.
+language hands its flags to its CLI parser (`cli.json` pins only what a command
+line gives each setting, not the parser's own help or error text).
 
 ## 14. What varies by language
 
-| Concern | Python (reference) | TypeScript ([`node/`](../node/README.md)) |
-| --- | --- | --- |
-| Declaring settings | a dict of defaults; `opt(type)` for an unset one | an object of defaults, with `int()`, `float()`, `str()`, ... for numbers and unset settings |
-| Type inference | the default's runtime type | the default's runtime type, plus explicit `int` and `float` (D2) |
-| Key style in the API | `snake_case` | `camelCase`, converted (D1) |
-| Manifest binding | `pyproject.toml`, `[tool.conclude.developer] config = "..."` | `package.json`, `"conclude": { "developer": { "config": "..." } }` (D3) |
-| CLI | builds `argparse` flags | flag definitions in `node:util.parseArgs`' shape, plus a thin `parseArgs` wrapper (D4) |
-| TOML | standard library | a small dependency (D5) |
-| Gitignore matching | the optional `pathspec` extra | an optional dependency (D5) |
+| Concern                       | Python ([`python/`](../python/README.md)) | TypeScript ([`node/`](../node/README.md)) | Bash ([`bash/`](../bash/README.md)) |
+| ----------------------------- | ----------------------------------------- | ----------------------------------------- | ----------------------------------- |
+| Declaring settings            | a dict of defaults; `opt(type)` for an unset one | an object of defaults, with `int()`, `float()`, `str()`, ... for numbers and unset settings | `conclude_define app key type [default]`; a 3-argument call (no default) and a 4-argument call with `""` are distinct |
+| Type inference                | the default's runtime type | the default's runtime type, plus explicit `int` and `float` (D2) | always explicit -- Bash has no runtime types to infer from |
+| Key style in the API          | `snake_case` | `camelCase`, converted (D1) | whatever the app declares; there is no separate API casing to convert from |
+| Custom casters/formatters     | yes, per setting or app-wide | no | no |
+| System config / `.env` layers | built in, opt-in (`AUTO`-able) | built in, opt-in (`AUTO`-able) | not wired into `conclude_resolve`; build them from the public primitives (guide section 7) |
+| Manifest binding              | `pyproject.toml`, `[tool.conclude.developer] config = "..."` | `package.json`, `"conclude": { "developer": { "config": "..." } }` | none (D3) -- `--developer-file`/`--developer-opt-in`, optionally resolved through a personal `~/.config/conclude/control.toml` |
+| CLI                           | builds `argparse` flags | flag definitions in `node:util.parseArgs`' shape, plus a thin `parseArgs` wrapper | owns parsing itself (D4) |
+| `--help`                      | automatic (via `argparse`), with per-flag custom text | none built in | opt-in (`conclude_resolve --help-flag`), assembled from the same declarations, not per-flag customizable |
+| TOML                          | standard library | a small dependency | hand-written; a deliberate subset (no arrays, two table levels) (D5) |
+| Gitignore matching            | the optional `pathspec` extra | an optional dependency | the real `git`, required rather than optional (D5) |
 
-**Decisions for other bindings.** The TypeScript package follows all five (its
-[guide](node/guide.md) and [reference](node/reference.md) show how):
+**Decisions for other bindings.** The TypeScript package follows D1, D2 and D3
+as written; Bash's own shape is noted inline above and in D3-D5 below, since a
+language with no object/class API and no package-manifest convention cannot
+follow some of these the same way:
 
 - **D1: canonical names in files and the environment.** Config-file keys and
   environment variable names use the canonical `snake_case` of section 4, so
   one config file or `.env` serves every implementation; a binding's API may
-  use its own casing and converts (`filterCol` is `filter_col`).
+  use its own casing and converts (`filterCol` is `filter_col`). Bash has no
+  such conversion to make -- a setting's key *is* its name everywhere, with no
+  separate in-language identifier style sitting above it.
 - **D2: numeric kinds are explicit** where the language cannot distinguish
-  them, and templates render per declared kind (section 11).
-- **D3: each ecosystem uses its own manifest** to name the developer file;
-  in a repository with several, they may name the same file.
-- **D4: no bundled CLI parser.** The binding exposes derived flag
-  definitions rather than owning the command line.
+  them, and templates render per declared kind (section 11). Bash's casters
+  take this further: every setting's type is explicit, numeric or not, since
+  Bash values carry no runtime type for a default to be inferred from.
+- **D3: each ecosystem uses its own manifest** to name the developer file; in
+  a repository with several, they may name the same file. Bash has no
+  manifest convention to use, so it has none: an app names the file directly
+  with `--developer-file`, or opts in with no opinion of its own
+  (`--developer-opt-in`) and leaves it to a personal, per-user
+  `~/.config/conclude/control.toml` (or `.developer.toml` if even that says
+  nothing) -- see [`conclude_resolve_developer_file`](bash/reference.md) in
+  the Bash reference. This file is Bash's own addition, not a
+  cross-language concept; another binding is free to do something else
+  entirely; it is not what D3 means by "manifest."
+- **D4: no bundled CLI parser.** Python and Node each expose derived flag
+  definitions for an external parser (`argparse`, `node:util.parseArgs`) to
+  own, rather than parsing the command line themselves. Bash has no
+  ecosystem-standard parser to defer to, so `conclude_resolve` necessarily
+  owns this step itself -- a deliberate departure from D4, not an oversight.
+  Its CLI vocabulary is narrower than `argparse`'s as a result: `--flag
+  value`, `--flag=value`, a bare `--flag` for a bool with its negation
+  `--no-flag` (section 4), and no abbreviation.
 - **D5: dependencies are minimal.** A TOML parser is required; gitignore
-  matching is optional, and its absence is a setup error (section 9).
+  matching is optional, and its absence is a setup error (section 9). Bash
+  goes further on the first (no library at all -- a hand-written reader
+  scoped to exactly what section 7 requires, which is also why it cannot read
+  a TOML array or a table nested past two levels) and differs on the second
+  (`git` is required outright, not an optional extra, since Bash has nothing
+  to fall back to without it).
+
+Help generation is not yet a cross-language policy, so it has no lettered
+decision above: Python gets a full `-h`/`--help` automatically from
+`argparse`; Node has nothing built in, and an app using it builds one from
+`formatCli` itself; Bash's `conclude_format_help` is opt-in and assembled from
+the same declarations every other template reads from, with no per-flag
+custom text the way `argparse`'s `help=` allows. If another binding adds
+something similar later, this section is where that would get written down.
 
 ## 15. Implementation-defined
 
@@ -388,10 +441,13 @@ and should document what they do:
 - line breaks other than `\n`, `\r\n` and `\r` in a `.env` file;
 - how a very small or very large `float` is written (exponent form) in a
   template;
-- reproducing a run for a `bool` whose default is true (there is no flag to turn
-  it off, so it cannot be reproduced), and for a non-`bool` setting whose
-  resolved value is unset while its default is not (Python writes `None`; the
-  TypeScript binding leaves it out);
+- reproducing a run for a non-`bool` setting whose resolved value is unset while
+  its default is not (Python writes `None`; the TypeScript binding leaves it
+  out);
+- abbreviated flags (`--fil` for `--filter-col`: `argparse` accepts them, the
+  others do not), and a value that starts with `-` given as a separate argument
+  (`--port -5`: `argparse` takes it, `node:util.parseArgs` rejects it; the
+  `--port=-5` form, which reproducing a run writes, works everywhere);
 - a default of empty text on a `str` setting when it is *resolved* (the
   template shows it; the merge casts it to unset);
 - what a boolean, a list or another non-text value does when cast to `str`,

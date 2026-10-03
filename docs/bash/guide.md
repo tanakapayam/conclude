@@ -69,9 +69,14 @@ declared default -- nobody said anything about it. That's the whole point:
 < CLI**, low to highest, and a setting only has to come from wherever it's
 convenient for that particular run.
 
-A `bool` is on with a bare flag and otherwise off -- there's no `--repeat
-false`; leaving the flag out is how you get `false`. And two things that are
-easy to get backwards: **an empty value is still an opinion.** `REMIND_DELAY=`
+A `bool` is turned on with a bare flag (`--repeat`) and off with its negation
+(`--no-repeat`); there's no `--repeat false`. Giving neither is no opinion, so a
+lower layer decides -- which is how a setting whose default is `true` can be
+switched off from the command line. The last of the two on the line wins. (A key
+that already starts with `no_`, like `no_color`, is turned off by dropping the
+`no`: `--color`.) Two settings may not claim the same flag -- `cache` and
+`no_cache` both want `--no-cache` -- and `conclude_resolve` fails if they do.
+And two things that are easy to get backwards: **an empty value is still an opinion.** `REMIND_DELAY=`
 (set, but empty) casts to "unset" and overrides a config file's delay; a
 `REMIND_DELAY` that was never set does not. And **every layer is cast, even
 one that loses.** A stray `retries = "many"` sitting forgotten in a config
@@ -179,7 +184,8 @@ remind --message='Call Sunday' --channel=slack --retries=10
 `channel` tracks whichever source actually won -- `sms` from the table in the
 first run, `slack` from the environment in the second -- while `retries`
 stays `10` either way, because nothing overrode the table for it. A setting
-equal to its default, and an off `bool`, are never printed at all: this is
+equal to its default is never printed at all, and a `bool` is the bare flag when
+it's on and its `--no-` negation when it's off: this is
 meant to be pasted somewhere as a record of the *decisions* a run made, not a
 restatement of everything conclude knows about.
 

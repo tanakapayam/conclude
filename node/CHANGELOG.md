@@ -6,6 +6,26 @@ and the package adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.
 
 ## [Unreleased]
 
+## [0.3.0] - 2026-10-04
+
+### Added
+
+- **A negation for every boolean flag.** A `bool` setting gets `--no-flag` as
+  well as `--flag`: `parseArgs` reads it as `false`, and the last one given
+  wins. A key that already starts with `no` is turned off by dropping it
+  (`noColor`: `--no-color` on, `--color` off). New exports: `cliNegatedFlagName`,
+  `cliFlags`, `cliOptions`, `parseCli`.
+- Two settings that claim the same flag (`cache` and `noCache`) are now an
+  error when the flags are derived, instead of one silently shadowing the other.
+
+### Changed
+
+- `formatInvocation` writes a boolean that is off as its negation, so a boolean
+  whose default is `true` reproduces; `formatCli` shows the flag that changes a
+  boolean's default (`--no-flag` for `true`, `--flag | --no-flag` for none).
+- `cliOptions()` now includes each boolean's `no-` negation.
+- Conforms to spec version 2 (new `spec/cli.json`).
+
 ## [0.2.7] - 2026-09-26
 
 ### Fixed

@@ -1,5 +1,5 @@
 {
-  "spec_version": 1,
+  "spec_version": 2,
   "description": "Merging the layers `defaults < config < env < developer < cli`, casting each value as it lands. Layer values are raw (env values are strings, config values are whatever TOML gave). `expect` lists every setting; `error: true` means resolution fails.",
   "cases": [
     {

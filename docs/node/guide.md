@@ -203,10 +203,16 @@ console.log(settings.repeat, settings.retries);
 true 5
 ```
 
-A boolean flag is bare (`--repeat`); every other flag takes a value; a flag you
-did not pass is no opinion, so the layer below decides. To use another parser
-(commander, yargs, ...), take `config.cliOptions()` -- the derived flags in
-`parseArgs`' shape -- or just build the `cli` object yourself.
+A boolean flag is bare (`--repeat`) and has a negation, `--no-repeat`, that sets
+it to `false` -- so a setting whose default is `true` can be switched off from
+the command line, and the last of the two on the line wins. (A setting whose key
+already starts with `no`, like `noColor` and `--no-color`, is turned off by
+dropping the `no`: `--color`.) Every other flag takes a value; a flag you did
+not pass is no opinion, so the layer below decides. Two settings may not claim
+the same flag -- `cache` and `noCache` both want `--no-cache` -- and `parseArgs`
+throws if they do. To use another parser (commander, yargs, ...), take
+`config.cliOptions()` -- the derived flags in `parseArgs`' shape, negations
+included as options of their own -- or just build the `cli` object yourself.
 
 ## 6. A `.env` file
 
@@ -422,8 +428,8 @@ remind --message='stand up' --delay=30 --repeat
 ```
 
 A setting that equals its default is left out (omitting the flag already
-reproduces it), and so is a boolean that is off and anything unset; values are
-POSIX shell-quoted. `alwaysInclude` forces a setting that equals its default to
+reproduces it) and so is anything unset; a boolean is the bare flag when it is on
+and its negation (`--no-repeat`) when it is off; values are POSIX shell-quoted. `alwaysInclude` forces a setting that equals its default to
 be written, `skip` leaves one out (it beats `alwaysInclude`), and
 `compareDefaults` says what counts as a setting's default for this call -- for a
 setting whose real default is substituted after `resolve()`.
@@ -441,5 +447,5 @@ if (values["print-invocation"]) {
 }
 ```
 
-A boolean whose *default* is `true` cannot be reproduced this way -- there is no
-flag to turn a boolean off -- so give such a setting a flag of your own.
+A boolean whose *default* is `true` reproduces too: when it is off, the command
+line carries its `--no-` negation.

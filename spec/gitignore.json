@@ -1,5 +1,5 @@
 {
-  "spec_version": 1,
+  "spec_version": 2,
   "description": "Whether a set of gitignore rules matches a path. `files` are written into a fresh working tree (`.git/` is created; the paths listed under `paths` are created as empty files); every `ignored` verdict was produced by `git check-ignore --no-index`, with no global or system git configuration.",
   "cases": [
     {

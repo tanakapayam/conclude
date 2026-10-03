@@ -4,6 +4,28 @@ All notable changes to this project are documented in this file. The
 format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and the project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+## [1.1.0] - 2026-10-04
+
+### Added
+
+- **A negation for every boolean flag.** A `bool` setting gets `--no-flag` as
+  well as `--flag` (the new `NegatableFlag` action): `--no-flag` stores
+  `False`, the last one given wins, and giving neither leaves the setting unset.
+  A key that already starts with `no_` is turned off by dropping it
+  (`no_color`: `--no-color` on, `--color` off). New: `cli_negated_flag_name`,
+  `NegatableFlag`, `NEGATED`, and the `conclude.cli` module.
+- Two settings that claim the same flag (`cache` and `no_cache`) now raise
+  `ValueError` from `add_arguments`, `format_cli` and `format_invocation`.
+
+### Changed
+
+- `format_invocation` writes a bool that is off as its negation, so a bool whose
+  default is `True` reproduces (`format_bool(False)` is now `NEGATED`, not
+  `None`); `format_cli` shows the flag that changes a bool's default.
+- Conforms to spec version 2 (new `spec/cli.json`).
+
 ## [1.0.2] - 2026-09-26
 
 ### Fixed

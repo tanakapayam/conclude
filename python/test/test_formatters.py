@@ -1,6 +1,7 @@
 import pytest
 
 from conclude.formatters import (
+    NEGATED,
     format_bool,
     format_list,
     format_scalar,
@@ -12,7 +13,8 @@ from conclude.infer import opt
 
 def test_format_bool():
     assert format_bool(True) == ""
-    assert format_bool(False) is None
+    assert format_bool(False) is NEGATED
+    assert format_bool(None) is None  # an unset opt(bool)
 
 
 def test_format_scalar():

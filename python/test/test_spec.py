@@ -11,6 +11,7 @@ API. The last section keeps the fixtures, the concept document and the
 implementation from drifting apart.
 """
 
+import argparse
 import json
 import os
 import re
@@ -33,7 +34,7 @@ from conclude import (
 from conclude.env import load_dotenv
 from conclude.files import load_config_files, parse_config_table, resolve_config_table
 from conclude.merge import resolve as merge_resolve
-from conclude.naming import cli_flag_name, config_key_name, env_var_name
+from conclude.naming import cli_flag_name, cli_negated_flag_name, config_key_name, env_var_name
 
 PACKAGE_ROOT = Path(__file__).resolve().parent.parent  # python/
 # In a git checkout, spec/ and docs/ are siblings of python/, one level up.
@@ -43,7 +44,7 @@ IN_CHECKOUT = (PACKAGE_ROOT.parent / "spec").is_dir()
 REPO_ROOT = PACKAGE_ROOT.parent if IN_CHECKOUT else PACKAGE_ROOT
 SPEC = REPO_ROOT / "spec"
 CONCEPT = REPO_ROOT / "docs" / "concept.md"
-SPEC_VERSION = 1
+SPEC_VERSION = 2
 
 pytestmark = pytest.mark.skipif(
     not SPEC.is_dir(), reason="the spec/ fixtures are not part of this checkout"
@@ -111,6 +112,7 @@ def build_tree(root, files):
 def test_naming(case):
     assert env_var_name(case["app"], case["key"]) == case["env_var"]
     assert cli_flag_name(case["key"]) == case["cli_flag"]
+    assert cli_negated_flag_name(case["key"]) == case["cli_negated_flag"]
     assert config_key_name(case["key"]) == case["config_key"]
 
 
@@ -337,6 +339,23 @@ def test_invocation(case):
     assert app.format_invocation(case["resolved"], **kwargs) == case["expect"]
 
 
+@pytest.mark.parametrize("case", cases("cli.json"), ids=ids("cli.json"))
+def test_cli(case):
+    def run():
+        app = conclude.App(
+            "myapp", defaults_from(case["settings"]), config_home_path=None, config_cwd_path=None
+        )
+        parser = app.build_arg_parser(prog="myapp", exit_on_error=False)
+        namespace = parser.parse_args(case["argv"])
+        return {key: value for key, value in vars(namespace).items() if value is not None}
+
+    if case.get("error"):
+        with pytest.raises((ValueError, argparse.ArgumentError, SystemExit)):
+            run()
+    else:
+        assert same(run(), case["expect"])
+
+
 @pytest.mark.parametrize("case", cases("sources.json"), ids=ids("sources.json"))
 def test_sources(case, tmp_path, pathspec):
     root = str(tmp_path)
@@ -383,6 +402,7 @@ FIXTURES = [
     "guard.json",
     "invocation.json",
     "sources.json",
+    "cli.json",
 ]
 
 

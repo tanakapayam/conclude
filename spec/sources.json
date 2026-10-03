@@ -1,5 +1,5 @@
 {
-  "spec_version": 1,
+  "spec_version": 2,
   "description": "The report of which sources are in play (`describe_sources` / `describeSources`). `options` are the sources the application configures, with `{root}` standing for a fresh working directory: `system`, `user` and `project` (paths or null), `aux` (the sibling pattern or null), `dotenv` (`path`, `require_gitignored`) and `developer` (null for not opted in, or `{file}` -- the adapter writes its ecosystem's manifest naming that file). `files` builds the tree; `env` is the environment the kill switch is read from. `expect` is the whole report. The wording of a `not configured` developer reason is binding-specific and not covered here.",
   "cases": [
     {
