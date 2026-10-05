@@ -134,3 +134,10 @@ jobs:
           print("conclude", conclude.__version__)
           assert (pathlib.Path(conclude.__file__).parent / "py.typed").exists()
           PY
+      - name: Rehearse the release checks on these distributions
+        # The same fingerprint, contents and install checks the publish workflow's stage job
+        # runs, so that script is exercised on every change and not only on release day.
+        run: |
+          digest=$(uv run --no-project python scripts/release.py integrity dist)
+          uv run --no-project python scripts/release.py check-integrity dist "$digest"
+          uv run --no-project python scripts/release.py verify-install dist

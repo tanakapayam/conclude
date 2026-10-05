@@ -3,6 +3,17 @@ name: Python Publish
 # Publishes the conclude package to PyPI. See python/RELEASING.md for the one-time
 # setup (environments, trusted publisher -- which is matched by this workflow's
 # *filename*, `python-publish.yml`) and the release process.
+#
+# Build once, check those exact files, then upload them:
+#
+#   build    builds the sdist and wheel and fingerprints them (python/scripts/release.py).
+#   stage    on every supported Python: the files are still the ones that were built, hold
+#            every module in the source tree, and install and run from clean environments.
+#            GitHub Packages has no PyPI registry to stage into, so this is the stage.
+#   publish  waits for approval (PyPI), re-checks the fingerprint, uploads, then installs the
+#            release back from the index and compares hashes (and, on PyPI, provenance).
+#
+# A manual run defaults to `dry-run`: build and stage, upload nothing.
 
 on:
   release:
@@ -10,10 +21,10 @@ on:
   workflow_dispatch:
     inputs:
       target:
-        description: Where to publish
+        description: Where to publish (dry-run builds and stages only, and uploads nothing)
         type: choice
-        options: [testpypi, pypi]
-        default: testpypi
+        options: [dry-run, testpypi, pypi]
+        default: dry-run
 
 permissions:
   contents: read
@@ -35,6 +46,8 @@ jobs:
     timeout-minutes: 10
     env:
       TARGET: ${{ github.event_name == 'release' && 'pypi' || inputs.target }}
+    outputs:
+      integrity: ${{ steps.built.outputs.integrity }}
     steps:
       - name: Check out
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -65,10 +78,21 @@ jobs:
             echo "::error::python/CHANGELOG.md still marks $VERSION as Unreleased; put the date on it."
             exit 1
           fi
+      - name: Give a rehearsal a version of its own
+        # 1.1.0 becomes 1.1.0.devNNNN: below the real release, and new for every run and
+        # re-run, because TestPyPI never accepts the same file name twice.
+        if: env.TARGET != 'pypi'
+        env:
+          RUN_NUMBER: ${{ github.run_number }}
+          RUN_ATTEMPT: ${{ github.run_attempt }}
+        run: python3 scripts/release.py rehearsal-version --run-number "$RUN_NUMBER" --run-attempt "$RUN_ATTEMPT" --write
       - name: Build the sdist and wheel
         run: uv build -o "$RUNNER_TEMP/dist"
       - name: twine check
         run: uvx twine check --strict "$RUNNER_TEMP/dist"/*
+      - name: Fingerprint the distributions
+        id: built
+        run: echo "integrity=$(python3 scripts/release.py integrity "$RUNNER_TEMP/dist")" >> "$GITHUB_OUTPUT"
       - name: Upload the distributions
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
@@ -77,9 +101,39 @@ jobs:
           if-no-files-found: error
           retention-days: 7
 
+  stage:
+    name: Stage (${{ matrix.python-version }})
+    needs: build
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ["3.11", "3.12", "3.13", "3.14"]
+    steps:
+      - name: Check out
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Set up uv and Python ${{ matrix.python-version }}
+        uses: astral-sh/setup-uv@c18668ad3cf93ea998bef934396af7bb5c839dc7 # v10.2.0
+        with:
+          python-version: ${{ matrix.python-version }}
+      - name: Download the distributions
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          name: dist
+          path: ${{ runner.temp }}/dist
+      - name: Check these are exactly the distributions that were built
+        env:
+          BUILT: ${{ needs.build.outputs.integrity }}
+        run: uv run --no-project python scripts/release.py check-integrity "$RUNNER_TEMP/dist" "$BUILT"
+      - name: Install them into clean environments and smoke-test
+        run: uv run --no-project python scripts/release.py verify-install "$RUNNER_TEMP/dist"
+
   publish-testpypi:
     name: Publish to TestPyPI
-    needs: build
+    needs: [build, stage]
     if: github.event_name == 'workflow_dispatch' && inputs.target == 'testpypi'
     runs-on: ubuntu-24.04
     timeout-minutes: 10
@@ -87,22 +141,39 @@ jobs:
       name: testpypi
       url: https://test.pypi.org/p/conclude
     permissions:
+      contents: read
       id-token: write # trusted publishing (OIDC); no API token is stored
     steps:
+      - name: Check out
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Set up uv
+        uses: astral-sh/setup-uv@c18668ad3cf93ea998bef934396af7bb5c839dc7 # v10.2.0
+        with:
+          python-version: "3.13"
       - name: Download the distributions
         uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
         with:
           name: dist
           path: dist/
+      - name: Check these are exactly the distributions that were staged
+        env:
+          BUILT: ${{ needs.build.outputs.integrity }}
+        run: uv run --no-project python scripts/release.py check-integrity "$GITHUB_WORKSPACE/dist" "$BUILT"
       - name: Publish to TestPyPI
         uses: pypa/gh-action-pypi-publish@dc37677b2e1c63e2034f94d8a5b11f265b73ba33 # v1.14.2
         with:
           repository-url: https://test.pypi.org/legacy/
           skip-existing: true
+      - name: Install the rehearsal back from TestPyPI and check it
+        # skip-existing makes a re-run harmless, which is also why the hashes are compared:
+        # a skipped upload must not be mistaken for the files that were just built.
+        run: uv run --no-project python scripts/release.py verify-published "$GITHUB_WORKSPACE/dist" --index https://test.pypi.org
 
   publish-pypi:
     name: Publish to PyPI
-    needs: build
+    needs: [build, stage]
     if: github.event_name == 'release' || (github.event_name == 'workflow_dispatch' && inputs.target == 'pypi')
     runs-on: ubuntu-24.04
     timeout-minutes: 10
@@ -110,12 +181,29 @@ jobs:
       name: pypi
       url: https://pypi.org/p/conclude
     permissions:
+      contents: read
       id-token: write # trusted publishing (OIDC); no API token is stored
     steps:
+      - name: Check out
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Set up uv
+        uses: astral-sh/setup-uv@c18668ad3cf93ea998bef934396af7bb5c839dc7 # v10.2.0
+        with:
+          python-version: "3.13"
       - name: Download the distributions
         uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
         with:
           name: dist
           path: dist/
+      - name: Check these are exactly the distributions that were staged
+        env:
+          BUILT: ${{ needs.build.outputs.integrity }}
+        run: uv run --no-project python scripts/release.py check-integrity "$GITHUB_WORKSPACE/dist" "$BUILT"
       - name: Publish to PyPI
         uses: pypa/gh-action-pypi-publish@dc37677b2e1c63e2034f94d8a5b11f265b73ba33 # v1.14.2
+      - name: Install the release back from PyPI and check it
+        # The upload is done and cannot be undone, so a failure here means "look at the
+        # release" (python/RELEASING.md says how), not "run it again".
+        run: uv run --no-project python scripts/release.py verify-published "$GITHUB_WORKSPACE/dist" --index https://pypi.org --expect-provenance

@@ -94,10 +94,12 @@ SHIPPED = [
     "python/README.md",
     "python/RELEASING.md",
     "python/hatch_build.py",
+    "python/scripts/release.py",
     "python/pyproject.toml",
     "python/src/conclude/__init__.py",
     "python/src/conclude/py.typed",
     "python/test/test_docs.py",
+    "python/test/test_release_script.py",
     "python/test/test_spec.py",
     "spec/README.md",
     "spec/casters.json",
@@ -325,6 +327,89 @@ def ignores_other_languages_releases(workflow_text, own_prefix, other_prefixes):
     # A positive self-match excludes every other language for free; a
     # negative-exclusion style instead needs each one named explicitly.
     return own_prefix in mentioned or other_prefixes <= mentioned
+
+
+# --- staging the Python release ---------------------------------------------------------
+#
+# GitHub Packages has no PyPI registry, so the "stage" is scripts/release.py run on the exact
+# files that get uploaded. These pin the shape of that pipeline in python-publish.yml.
+
+
+def publish_jobs():
+    return job_blocks(PUBLISH.read_text(encoding="utf-8"))
+
+
+def test_a_manual_run_defaults_to_the_one_that_uploads_nothing():
+    text = PUBLISH.read_text(encoding="utf-8")
+    assert re.search(r"options:\s*\[dry-run, testpypi, pypi\]\s*default:\s*dry-run", text)
+    publish = publish_jobs()
+    assert "inputs.target == 'testpypi'" in publish["publish-testpypi"]
+    assert "dry-run" not in publish["publish-pypi"]
+
+
+def test_the_stage_runs_on_exactly_the_python_versions_the_package_claims():
+    project = tomllib.loads((PACKAGE_ROOT / "pyproject.toml").read_text(encoding="utf-8"))[
+        "project"
+    ]
+    claimed = {
+        c.rsplit(" :: ", 1)[1]
+        for c in project["classifiers"]
+        if re.fullmatch(r"Programming Language :: Python :: 3\.\d+", c)
+    }
+    matrix = re.search(r"python-version:\s*\[(.*?)\]", publish_jobs()["stage"])
+    assert matrix
+    assert set(re.findall(r"\d+\.\d+", matrix.group(1))) == claimed
+
+
+def test_the_stage_checks_the_built_files_and_installs_them_but_cannot_publish():
+    stage = publish_jobs()["stage"]
+    assert "needs: build" in stage
+    assert "needs.build.outputs.integrity" in stage
+    assert "release.py check-integrity" in stage and "release.py verify-install" in stage
+    assert "id-token" not in stage and "environment:" not in stage
+
+
+def test_the_build_fingerprints_what_it_uploads_and_rehearsals_get_their_own_version():
+    build = publish_jobs()["build"]
+    assert "release.py integrity" in build
+    assert "integrity: ${{ steps.built.outputs.integrity }}" in build
+    rehearsal = build.index("release.py rehearsal-version")
+    assert "env.TARGET != 'pypi'" in build[:rehearsal].rsplit("- name:", 1)[1]
+    assert rehearsal < build.index("uv build")  # the version is set before the files are built
+    assert build.index("uv build") < build.index("release.py integrity")
+
+
+@pytest.mark.parametrize(
+    ("job", "index"),
+    [("publish-testpypi", "https://test.pypi.org"), ("publish-pypi", "https://pypi.org")],
+)
+def test_each_upload_follows_the_stage_rechecks_the_files_and_reads_the_release_back(job, index):
+    block = publish_jobs()[job]
+    assert "needs: [build, stage]" in block
+    upload = block.index("pypa/gh-action-pypi-publish@")
+    check = block.index("release.py check-integrity")
+    back = block.index("release.py verify-published")
+    assert check < upload < back
+    assert f"--index {index}" in block[back:]
+    # Both of them: the OIDC token to upload, and read access to fetch release.py itself.
+    assert "id-token: write" in block and "contents: read" in block
+
+
+def test_real_pypi_also_has_its_provenance_checked():
+    pypi = publish_jobs()["publish-pypi"]
+    testpypi = publish_jobs()["publish-testpypi"]
+    assert "--expect-provenance" in pypi
+    assert "--expect-provenance" not in testpypi
+
+
+def test_ci_rehearses_the_release_checks_on_every_build():
+    build = job_blocks(CI.read_text(encoding="utf-8"))["build"]
+    for command in [
+        "release.py integrity",
+        "release.py check-integrity",
+        "release.py verify-install",
+    ]:
+        assert command in build, command
 
 
 @pytest.mark.skipif(not NODE.is_dir(), reason="there is no node/ package in this checkout")

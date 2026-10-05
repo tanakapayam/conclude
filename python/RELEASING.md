@@ -1,24 +1,33 @@
 # Releasing conclude (Python)
 
+Releases build once, check those exact files, and only then upload them, with a person in
+between (`.github/workflows/python-publish.yml`):
+
 ```
 release published (tag python-v<version>)
    |
    v
- ci ---> build ---> publish-testpypi   (workflow_dispatch, target testpypi: a dry run)
-          |          |
-          |          +-> publish-pypi   waits for a reviewer to approve the `pypi`
-          |                             environment, then publishes with trusted
-          |                             publishing (no stored token)
+ ci ---> build ---> stage (3.11 - 3.14) ---> publish-pypi
+          |          |                          |
+          |          | the files are still      | waits for a reviewer to approve the `pypi`
+          |          | the ones built, hold     | environment, re-checks the fingerprint, uploads
+          |          | every module, and        | with trusted publishing (no stored token), then
+          |          | install and run in       | installs the release back from PyPI and compares
+          |          | clean environments       | hashes and provenance
           |
           +-- one sdist + wheel, built once, uploaded as an artifact and promoted unchanged
 ```
 
-TestPyPI is the dry run here (there is no separate staging registry, unlike the Node
-package's GitHub Packages stage): `workflow_dispatch` with `target: testpypi` builds,
-checks, and publishes to TestPyPI, and installs nothing back automatically -- try it
-yourself with `pip install -i https://test.pypi.org/simple/ conclude`. A real release
-(`target: pypi`, or a published GitHub Release) is checked, gated behind a required
-reviewer on the `pypi` environment, then published to PyPI.
+Why: a version on PyPI can never be replaced, and a wheel that leaves out a new module
+imports fine from a checkout and breaks for everyone else. The stage catches that first.
+Why one set of files: `scripts/release.py integrity` fingerprints them at build time, and
+the stage and the upload each recompute it from the artifact they downloaded, so what was
+checked is byte-for-byte what is uploaded.
+
+Unlike the Node package there is no staging *registry*: GitHub Packages has no PyPI
+registry, and TestPyPI never accepts a file name twice (not even after a delete), so it
+cannot stage the real version without burning it. The stage is therefore the checks
+themselves, in `scripts/release.py` (standard library only; `python scripts/release.py -h`).
 
 ## One-time setup
 
@@ -47,10 +56,42 @@ reviewer on the `pypi` environment, then published to PyPI.
    `CHANGELOG.md` (the release is refused while it says *Unreleased*).
 2. Merge to `main`.
 3. Create a GitHub Release from a new tag `python-v<version>` on `main`.
-4. `publish-pypi` waits for a reviewer to **approve the `pypi` deployment**; approve it
+4. The workflow builds and stages on every supported Python. When it is green,
+   `publish-pypi` waits for a reviewer to **approve the `pypi` deployment**; approve it
    when you are happy.
+5. After the upload, the last steps install the release back from PyPI and compare its
+   hashes (and provenance) with what was built. If one of them is red, **do not re-run
+   it**: the upload is done and cannot be undone. Look at <https://pypi.org/project/conclude/>,
+   yank the release there if it is broken (Manage, Options, Yank), and publish a fixed
+   version. A red "listing" or "download" step right after an upload is usually the index
+   still catching up; the script retries for about five minutes before it gives up.
 
 ## Rehearsing
 
-Actions, Publish, Run workflow, target `testpypi` -- builds, checks, and publishes to
-TestPyPI without touching the `pypi` environment or a real version on PyPI.
+- **Actions, Python Publish, Run workflow**:
+  - `dry-run` (the default) builds and stages, and uploads nothing.
+  - `testpypi` also uploads to TestPyPI and installs it back, under a throwaway version
+    (`1.1.0` becomes `1.1.0.dev<run*100+attempt>`, below the real release and different for
+    every run and re-run). It never touches the `pypi` environment or a real version.
+  - `pypi` publishes for real from a manual run; prefer publishing a GitHub Release.
+- **Locally**, on the files `uv build` leaves in `dist/` (CI does exactly this on every
+  change, in the `build` job of `python-ci.yml`):
+
+  ```
+  cd python
+  uv build
+  python scripts/release.py integrity dist
+  python scripts/release.py verify-install dist
+  ```
+
+  `verify-install` installs the wheel (offline) and the sdist into fresh virtual
+  environments, checks that both hold every file under `src/conclude/`, and runs a short
+  smoke test of what was installed. To check a release that is already on an index, put
+  its two files in a directory and run
+  `python scripts/release.py verify-published <dir> --index https://pypi.org --expect-provenance`.
+
+## Trying a rehearsal version
+
+```
+pip install -i https://test.pypi.org/simple/ "conclude==<the 1.1.0.devNNNN the run printed>"
+```
