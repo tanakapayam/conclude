@@ -6,7 +6,7 @@ name: Python Publish
 #
 # Build once, check those exact files, then upload them:
 #
-#   build    builds the sdist and wheel and fingerprints them (python/scripts/release.py).
+#   build    builds the sdist and wheel and fingerprints them (tanakapayam/actions).
 #   stage    on every supported Python: the files are still the ones that were built, hold
 #            every module in the source tree, and install and run from clean environments.
 #            GitHub Packages has no PyPI registry to stage into, so this is the stage.
@@ -47,7 +47,7 @@ jobs:
     env:
       TARGET: ${{ github.event_name == 'release' && 'pypi' || inputs.target }}
     outputs:
-      integrity: ${{ steps.built.outputs.integrity }}
+      integrity: ${{ steps.built.outputs.digest }}
     steps:
       - name: Check out
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -62,37 +62,27 @@ jobs:
         run: echo "version=$(grep -oP '^__version__ = "\K[^"]+' src/conclude/__init__.py)" >> "$GITHUB_OUTPUT"
       - name: Check the release is ready (real PyPI only)
         if: env.TARGET == 'pypi'
-        env:
-          TAG: ${{ github.event.release.tag_name }}
-          VERSION: ${{ steps.version.outputs.version }}
-        run: |
-          if [ "$TAG" != "python-v$VERSION" ]; then
-            echo "::error::The release tag $TAG does not match the package version (python-v$VERSION)."
-            exit 1
-          fi
-          if ! grep -q "^## \[$VERSION\]" CHANGELOG.md; then
-            echo "::error::python/CHANGELOG.md has no entry for $VERSION."
-            exit 1
-          fi
-          if grep -q "^## \[$VERSION\] - Unreleased" CHANGELOG.md; then
-            echo "::error::python/CHANGELOG.md still marks $VERSION as Unreleased; put the date on it."
-            exit 1
-          fi
+        uses: tanakapayam/actions/release/guard@a423bf3e0c80f75af83d896039cc9b394af22e48 # v0.1.1
+        with:
+          tag-prefix: python-v
+          version: ${{ steps.version.outputs.version }}
+          changelog: python/CHANGELOG.md
       - name: Give a rehearsal a version of its own
         # 1.1.0 becomes 1.1.0.devNNNN: below the real release, and new for every run and
         # re-run, because TestPyPI never accepts the same file name twice.
         if: env.TARGET != 'pypi'
-        env:
-          RUN_NUMBER: ${{ github.run_number }}
-          RUN_ATTEMPT: ${{ github.run_attempt }}
-        run: python3 scripts/release.py rehearsal-version --run-number "$RUN_NUMBER" --run-attempt "$RUN_ATTEMPT" --write
+        uses: tanakapayam/actions/python/rehearsal-version@a423bf3e0c80f75af83d896039cc9b394af22e48 # v0.1.1
+        with:
+          file: python/src/conclude/__init__.py
       - name: Build the sdist and wheel
         run: uv build -o "$RUNNER_TEMP/dist"
       - name: twine check
         run: uvx twine check --strict "$RUNNER_TEMP/dist"/*
       - name: Fingerprint the distributions
         id: built
-        run: echo "integrity=$(python3 scripts/release.py integrity "$RUNNER_TEMP/dist")" >> "$GITHUB_OUTPUT"
+        uses: tanakapayam/actions/artifact/fingerprint@a423bf3e0c80f75af83d896039cc9b394af22e48 # v0.1.1
+        with:
+          path: ${{ runner.temp }}/dist
       - name: Upload the distributions
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
@@ -125,11 +115,18 @@ jobs:
           name: dist
           path: ${{ runner.temp }}/dist
       - name: Check these are exactly the distributions that were built
-        env:
-          BUILT: ${{ needs.build.outputs.integrity }}
-        run: uv run --no-project python scripts/release.py check-integrity "$RUNNER_TEMP/dist" "$BUILT"
+        uses: tanakapayam/actions/artifact/verify-fingerprint@a423bf3e0c80f75af83d896039cc9b394af22e48 # v0.1.1
+        with:
+          path: ${{ runner.temp }}/dist
+          expected: ${{ needs.build.outputs.integrity }}
       - name: Install them into clean environments and smoke-test
-        run: uv run --no-project python scripts/release.py verify-install "$RUNNER_TEMP/dist"
+        uses: tanakapayam/actions/python/verify-install@a423bf3e0c80f75af83d896039cc9b394af22e48 # v0.1.1
+        with:
+          dist: ${{ runner.temp }}/dist
+          source-root: python
+          expect-py-typed: "true"
+          smoke: python/scripts/smoke.py
+          python: uv run --no-project python
 
   publish-testpypi:
     name: Publish to TestPyPI
@@ -158,9 +155,10 @@ jobs:
           name: dist
           path: dist/
       - name: Check these are exactly the distributions that were staged
-        env:
-          BUILT: ${{ needs.build.outputs.integrity }}
-        run: uv run --no-project python scripts/release.py check-integrity "$GITHUB_WORKSPACE/dist" "$BUILT"
+        uses: tanakapayam/actions/artifact/verify-fingerprint@a423bf3e0c80f75af83d896039cc9b394af22e48 # v0.1.1
+        with:
+          path: dist
+          expected: ${{ needs.build.outputs.integrity }}
       - name: Publish to TestPyPI
         uses: pypa/gh-action-pypi-publish@dc37677b2e1c63e2034f94d8a5b11f265b73ba33 # v1.14.2
         with:
@@ -169,7 +167,13 @@ jobs:
       - name: Install the rehearsal back from TestPyPI and check it
         # skip-existing makes a re-run harmless, which is also why the hashes are compared:
         # a skipped upload must not be mistaken for the files that were just built.
-        run: uv run --no-project python scripts/release.py verify-published "$GITHUB_WORKSPACE/dist" --index https://test.pypi.org
+        uses: tanakapayam/actions/python/verify-published@a423bf3e0c80f75af83d896039cc9b394af22e48 # v0.1.1
+        with:
+          dist: dist
+          index: https://test.pypi.org
+          expect-py-typed: "true"
+          smoke: python/scripts/smoke.py
+          python: uv run --no-project python
 
   publish-pypi:
     name: Publish to PyPI
@@ -198,12 +202,19 @@ jobs:
           name: dist
           path: dist/
       - name: Check these are exactly the distributions that were staged
-        env:
-          BUILT: ${{ needs.build.outputs.integrity }}
-        run: uv run --no-project python scripts/release.py check-integrity "$GITHUB_WORKSPACE/dist" "$BUILT"
+        uses: tanakapayam/actions/artifact/verify-fingerprint@a423bf3e0c80f75af83d896039cc9b394af22e48 # v0.1.1
+        with:
+          path: dist
+          expected: ${{ needs.build.outputs.integrity }}
       - name: Publish to PyPI
         uses: pypa/gh-action-pypi-publish@dc37677b2e1c63e2034f94d8a5b11f265b73ba33 # v1.14.2
       - name: Install the release back from PyPI and check it
         # The upload is done and cannot be undone, so a failure here means "look at the
         # release" (python/RELEASING.md says how), not "run it again".
-        run: uv run --no-project python scripts/release.py verify-published "$GITHUB_WORKSPACE/dist" --index https://pypi.org --expect-provenance
+        uses: tanakapayam/actions/python/verify-published@a423bf3e0c80f75af83d896039cc9b394af22e48 # v0.1.1
+        with:
+          dist: dist
+          expect-provenance: "true"
+          expect-py-typed: "true"
+          smoke: python/scripts/smoke.py
+          python: uv run --no-project python

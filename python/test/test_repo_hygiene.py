@@ -94,12 +94,11 @@ SHIPPED = [
     "python/README.md",
     "python/RELEASING.md",
     "python/hatch_build.py",
-    "python/scripts/release.py",
+    "python/scripts/smoke.py",
     "python/pyproject.toml",
     "python/src/conclude/__init__.py",
     "python/src/conclude/py.typed",
     "python/test/test_docs.py",
-    "python/test/test_release_script.py",
     "python/test/test_spec.py",
     "spec/README.md",
     "spec/casters.json",
@@ -331,12 +330,33 @@ def ignores_other_languages_releases(workflow_text, own_prefix, other_prefixes):
 
 # --- staging the Python release ---------------------------------------------------------
 #
-# GitHub Packages has no PyPI registry, so the "stage" is scripts/release.py run on the exact
-# files that get uploaded. These pin the shape of that pipeline in python-publish.yml.
+# GitHub Packages has no PyPI registry, so the "stage" is the checks of tanakapayam/actions
+# run on the exact files that get uploaded. These pin the shape of that pipeline in
+# python-publish.yml; the checks themselves are tested in that repository.
+
+OWN_ACTIONS = "tanakapayam/actions/"
 
 
 def publish_jobs():
     return job_blocks(PUBLISH.read_text(encoding="utf-8"))
+
+
+def actions_used(block):
+    """The tanakapayam/actions actions a block uses, in order (``release/guard``, ...)."""
+    names = re.findall(r"uses: ([\w./-]+)@", block)
+    return [name[len(OWN_ACTIONS) :] for name in names if name.startswith(OWN_ACTIONS)]
+
+
+def uses_in_order(block):
+    return re.findall(r"uses: ([\w./-]+)@", block)
+
+
+def step_using(block, action):
+    """The text of the step that uses ``action``: its name, condition, ``uses`` and inputs."""
+    at = block.index(action)
+    start = block.rindex("- name:", 0, at)
+    following = block.find("- name:", at)
+    return block[start:] if following == -1 else block[start:following]
 
 
 def test_a_manual_run_defaults_to_the_one_that_uploads_nothing():
@@ -361,55 +381,85 @@ def test_the_stage_runs_on_exactly_the_python_versions_the_package_claims():
     assert set(re.findall(r"\d+\.\d+", matrix.group(1))) == claimed
 
 
-def test_the_stage_checks_the_built_files_and_installs_them_but_cannot_publish():
+def test_the_stage_verifies_the_built_files_then_installs_them_but_cannot_publish():
     stage = publish_jobs()["stage"]
     assert "needs: build" in stage
-    assert "needs.build.outputs.integrity" in stage
-    assert "release.py check-integrity" in stage and "release.py verify-install" in stage
+    assert "expected: ${{ needs.build.outputs.integrity }}" in stage
+    assert actions_used(stage) == ["artifact/verify-fingerprint", "python/verify-install"]
     assert "id-token" not in stage and "environment:" not in stage
 
 
-def test_the_build_fingerprints_what_it_uploads_and_rehearsals_get_their_own_version():
+def test_the_build_checks_the_release_fingerprints_what_it_uploads_and_rehearsals_get_a_version():
     build = publish_jobs()["build"]
-    assert "release.py integrity" in build
-    assert "integrity: ${{ steps.built.outputs.integrity }}" in build
-    rehearsal = build.index("release.py rehearsal-version")
-    assert "env.TARGET != 'pypi'" in build[:rehearsal].rsplit("- name:", 1)[1]
-    assert rehearsal < build.index("uv build")  # the version is set before the files are built
-    assert build.index("uv build") < build.index("release.py integrity")
+    assert actions_used(build) == [
+        "release/guard",
+        "python/rehearsal-version",
+        "artifact/fingerprint",
+    ]
+    assert "integrity: ${{ steps.built.outputs.digest }}" in build
+    assert "if: env.TARGET == 'pypi'" in step_using(build, "release/guard")
+    assert "if: env.TARGET != 'pypi'" in step_using(build, "python/rehearsal-version")
+    rehearsal = build.index("python/rehearsal-version")
+    # the version is set before the files are built, and they are fingerprinted after
+    assert rehearsal < build.index("uv build") < build.index("artifact/fingerprint")
 
 
 @pytest.mark.parametrize(
-    ("job", "index"),
-    [("publish-testpypi", "https://test.pypi.org"), ("publish-pypi", "https://pypi.org")],
+    ("job", "index"), [("publish-testpypi", "index: https://test.pypi.org"), ("publish-pypi", "")]
 )
 def test_each_upload_follows_the_stage_rechecks_the_files_and_reads_the_release_back(job, index):
     block = publish_jobs()[job]
     assert "needs: [build, stage]" in block
-    upload = block.index("pypa/gh-action-pypi-publish@")
-    check = block.index("release.py check-integrity")
-    back = block.index("release.py verify-published")
+    names = uses_in_order(block)
+    check = names.index(f"{OWN_ACTIONS}artifact/verify-fingerprint")
+    upload = names.index("pypa/gh-action-pypi-publish")
+    back = names.index(f"{OWN_ACTIONS}python/verify-published")
     assert check < upload < back
-    assert f"--index {index}" in block[back:]
-    # Both of them: the OIDC token to upload, and read access to fetch release.py itself.
+    if index:
+        assert index in block
+    # Both of them: the OIDC token to upload, and read access to fetch the smoke script.
     assert "id-token: write" in block and "contents: read" in block
 
 
 def test_real_pypi_also_has_its_provenance_checked():
-    pypi = publish_jobs()["publish-pypi"]
-    testpypi = publish_jobs()["publish-testpypi"]
-    assert "--expect-provenance" in pypi
-    assert "--expect-provenance" not in testpypi
+    assert 'expect-provenance: "true"' in publish_jobs()["publish-pypi"]
+    assert "expect-provenance" not in publish_jobs()["publish-testpypi"]
+
+
+def test_every_smoke_script_the_workflows_name_exists():
+    for workflow in (PUBLISH, CI):
+        for path in re.findall(r"smoke: (\S+)", workflow.read_text(encoding="utf-8")):
+            assert (REPO_ROOT / path).is_file(), (workflow.name, path)
 
 
 def test_ci_rehearses_the_release_checks_on_every_build():
     build = job_blocks(CI.read_text(encoding="utf-8"))["build"]
-    for command in [
-        "release.py integrity",
-        "release.py check-integrity",
-        "release.py verify-install",
-    ]:
-        assert command in build, command
+    assert actions_used(build) == [
+        "artifact/fingerprint",
+        "artifact/verify-fingerprint",
+        "python/verify-install",
+    ]
+
+
+@pytest.mark.parametrize(
+    ("workflow", "prefix", "condition"),
+    [
+        ("python-publish.yml", "python-v", "env.TARGET == 'pypi'"),
+        ("node-publish.yml", "node-v", "github.event_name == 'release'"),
+        ("bash-publish.yml", "bash-v", "github.event_name == 'release'"),
+    ],
+)
+def test_every_release_is_guarded_by_the_shared_guard_with_its_own_tag_prefix(
+    workflow, prefix, condition
+):
+    path = WORKFLOWS / workflow
+    if not path.exists():
+        pytest.skip(f"no {workflow} in this checkout")
+    text = path.read_text(encoding="utf-8")
+    step = step_using(text, "release/guard@")
+    assert f"if: {condition}" in step
+    assert f"tag-prefix: {prefix}\n" in step
+    assert "changelog: " in step and "version: ${{ steps." in step
 
 
 @pytest.mark.skipif(not NODE.is_dir(), reason="there is no node/ package in this checkout")

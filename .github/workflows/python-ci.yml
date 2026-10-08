@@ -134,10 +134,23 @@ jobs:
           print("conclude", conclude.__version__)
           assert (pathlib.Path(conclude.__file__).parent / "py.typed").exists()
           PY
-      - name: Rehearse the release checks on these distributions
+      - name: Fingerprint these distributions
         # The same fingerprint, contents and install checks the publish workflow's stage job
-        # runs, so that script is exercised on every change and not only on release day.
-        run: |
-          digest=$(uv run --no-project python scripts/release.py integrity dist)
-          uv run --no-project python scripts/release.py check-integrity dist "$digest"
-          uv run --no-project python scripts/release.py verify-install dist
+        # runs, so they are exercised on every change and not only on release day.
+        id: rehearsal
+        uses: tanakapayam/actions/artifact/fingerprint@a423bf3e0c80f75af83d896039cc9b394af22e48 # v0.1.1
+        with:
+          path: python/dist
+      - name: Check they are still those distributions
+        uses: tanakapayam/actions/artifact/verify-fingerprint@a423bf3e0c80f75af83d896039cc9b394af22e48 # v0.1.1
+        with:
+          path: python/dist
+          expected: ${{ steps.rehearsal.outputs.digest }}
+      - name: Install them into clean environments and smoke-test
+        uses: tanakapayam/actions/python/verify-install@a423bf3e0c80f75af83d896039cc9b394af22e48 # v0.1.1
+        with:
+          dist: python/dist
+          source-root: python
+          expect-py-typed: "true"
+          smoke: python/scripts/smoke.py
+          python: uv run --no-project python

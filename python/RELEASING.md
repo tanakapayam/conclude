@@ -20,14 +20,17 @@ release published (tag python-v<version>)
 
 Why: a version on PyPI can never be replaced, and a wheel that leaves out a new module
 imports fine from a checkout and breaks for everyone else. The stage catches that first.
-Why one set of files: `scripts/release.py integrity` fingerprints them at build time, and
-the stage and the upload each recompute it from the artifact they downloaded, so what was
-checked is byte-for-byte what is uploaded.
+Why one set of files: `artifact/fingerprint` fingerprints them at build time, and the stage
+and the upload each run `artifact/verify-fingerprint` on the artifact they downloaded, so what
+was checked is byte-for-byte what is uploaded.
 
 Unlike the Node package there is no staging *registry*: GitHub Packages has no PyPI
 registry, and TestPyPI never accepts a file name twice (not even after a delete), so it
 cannot stage the real version without burning it. The stage is therefore the checks
-themselves, in `scripts/release.py` (standard library only; `python scripts/release.py -h`).
+themselves, and they live in [tanakapayam/actions](https://github.com/tanakapayam/actions)
+(`python/verify-install`, `python/verify-published`, `release/guard` and friends), shared with
+every other package released this way. conclude's own part is `python/scripts/smoke.py`, the
+smoke test the stage runs inside each fresh install.
 
 ## One-time setup
 
@@ -64,7 +67,7 @@ themselves, in `scripts/release.py` (standard library only; `python scripts/rele
    it**: the upload is done and cannot be undone. Look at <https://pypi.org/project/conclude/>,
    yank the release there if it is broken (Manage, Options, Yank), and publish a fixed
    version. A red "listing" or "download" step right after an upload is usually the index
-   still catching up; the script retries for about five minutes before it gives up.
+   still catching up; the check retries for about five minutes before it gives up.
 
 ## Rehearsing
 
@@ -75,20 +78,23 @@ themselves, in `scripts/release.py` (standard library only; `python scripts/rele
     every run and re-run). It never touches the `pypi` environment or a real version.
   - `pypi` publishes for real from a manual run; prefer publishing a GitHub Release.
 - **Locally**, on the files `uv build` leaves in `dist/` (CI does exactly this on every
-  change, in the `build` job of `python-ci.yml`):
+  change, in the `build` job of `python-ci.yml`). The checks are plain Python scripts in a
+  clone of tanakapayam/actions:
 
   ```
+  git clone https://github.com/tanakapayam/actions ~/src/actions
   cd python
   uv build
-  python scripts/release.py integrity dist
-  python scripts/release.py verify-install dist
+  python ~/src/actions/lib/fingerprint.py digest dist
+  python ~/src/actions/lib/pyrelease.py verify-install dist --source-root . \
+      --expect-py-typed --smoke scripts/smoke.py
   ```
 
-  `verify-install` installs the wheel (offline) and the sdist into fresh virtual
-  environments, checks that both hold every file under `src/conclude/`, and runs a short
-  smoke test of what was installed. To check a release that is already on an index, put
-  its two files in a directory and run
-  `python scripts/release.py verify-published <dir> --index https://pypi.org --expect-provenance`.
+  `verify-install` installs the wheel and the sdist into fresh virtual environments, checks
+  that both hold every file under `src/conclude/`, and runs the built-in smoke test and
+  `scripts/smoke.py` in each. To check a release that is already on an index, put its two
+  files in a directory and run `python ~/src/actions/lib/pyrelease.py verify-published <dir>
+  --expect-provenance --smoke scripts/smoke.py`.
 
 ## Trying a rehearsal version
 
