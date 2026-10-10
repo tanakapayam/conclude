@@ -73,9 +73,12 @@ smoke test the stage runs inside each fresh install.
 
 - **Actions, Python Publish, Run workflow**:
   - `dry-run` (the default) builds and stages, and uploads nothing.
-  - `testpypi` also uploads to TestPyPI and installs it back, under a throwaway version
-    (`1.1.0` becomes `1.1.0.dev<run*100+attempt>`, below the real release and different for
-    every run and re-run). It never touches the `pypi` environment or a real version.
+  - `testpypi` also uploads to TestPyPI and reads it back (hashes, install, provenance), under
+    a throwaway version (`1.1.0` becomes `1.1.0.dev<run*100+attempt>`, below the real release
+    and different for every run and re-run). It never touches the `pypi` environment or a real
+    version. If the provenance check is the only red step, TestPyPI has not published the
+    attestations (it retries for about five minutes first): drop `expect-provenance` from that
+    one step and say so here.
   - `pypi` publishes for real from a manual run; prefer publishing a GitHub Release.
 - **Locally**, on the files `uv build` leaves in `dist/` (CI does exactly this on every
   change, in the `build` job of `python-ci.yml`). The checks are plain Python scripts in a

@@ -62,7 +62,7 @@ jobs:
         run: echo "version=$(grep -oP '^__version__ = "\K[^"]+' src/conclude/__init__.py)" >> "$GITHUB_OUTPUT"
       - name: Check the release is ready (real PyPI only)
         if: env.TARGET == 'pypi'
-        uses: tanakapayam/actions/release/guard@dff6ee8d19d49f765c30c40b94457475add085a5 # v0.1.2
+        uses: tanakapayam/actions/release/guard@d85ef0d8e58c34845b6d7efe29ff16f154d00a32 # v0.1.3
         with:
           tag-prefix: python-v
           version: ${{ steps.version.outputs.version }}
@@ -71,7 +71,7 @@ jobs:
         # 1.1.0 becomes 1.1.0.devNNNN: below the real release, and new for every run and
         # re-run, because TestPyPI never accepts the same file name twice.
         if: env.TARGET != 'pypi'
-        uses: tanakapayam/actions/python/rehearsal-version@dff6ee8d19d49f765c30c40b94457475add085a5 # v0.1.2
+        uses: tanakapayam/actions/python/rehearsal-version@d85ef0d8e58c34845b6d7efe29ff16f154d00a32 # v0.1.3
         with:
           file: python/src/conclude/__init__.py
       - name: Build the sdist and wheel
@@ -80,7 +80,7 @@ jobs:
         run: uvx twine check --strict "$RUNNER_TEMP/dist"/*
       - name: Fingerprint the distributions
         id: built
-        uses: tanakapayam/actions/artifact/fingerprint@dff6ee8d19d49f765c30c40b94457475add085a5 # v0.1.2
+        uses: tanakapayam/actions/artifact/fingerprint@d85ef0d8e58c34845b6d7efe29ff16f154d00a32 # v0.1.3
         with:
           path: ${{ runner.temp }}/dist
       - name: Upload the distributions
@@ -115,12 +115,12 @@ jobs:
           name: dist
           path: ${{ runner.temp }}/dist
       - name: Check these are exactly the distributions that were built
-        uses: tanakapayam/actions/artifact/verify-fingerprint@dff6ee8d19d49f765c30c40b94457475add085a5 # v0.1.2
+        uses: tanakapayam/actions/artifact/verify-fingerprint@d85ef0d8e58c34845b6d7efe29ff16f154d00a32 # v0.1.3
         with:
           path: ${{ runner.temp }}/dist
           expected: ${{ needs.build.outputs.integrity }}
       - name: Install them into clean environments and smoke-test
-        uses: tanakapayam/actions/python/verify-install@dff6ee8d19d49f765c30c40b94457475add085a5 # v0.1.2
+        uses: tanakapayam/actions/python/verify-install@d85ef0d8e58c34845b6d7efe29ff16f154d00a32 # v0.1.3
         with:
           dist: ${{ runner.temp }}/dist
           source-root: python
@@ -155,7 +155,7 @@ jobs:
           name: dist
           path: dist/
       - name: Check these are exactly the distributions that were staged
-        uses: tanakapayam/actions/artifact/verify-fingerprint@dff6ee8d19d49f765c30c40b94457475add085a5 # v0.1.2
+        uses: tanakapayam/actions/artifact/verify-fingerprint@d85ef0d8e58c34845b6d7efe29ff16f154d00a32 # v0.1.3
         with:
           path: dist
           expected: ${{ needs.build.outputs.integrity }}
@@ -167,10 +167,13 @@ jobs:
       - name: Install the rehearsal back from TestPyPI and check it
         # skip-existing makes a re-run harmless, which is also why the hashes are compared:
         # a skipped upload must not be mistaken for the files that were just built.
-        uses: tanakapayam/actions/python/verify-published@dff6ee8d19d49f765c30c40b94457475add085a5 # v0.1.2
+        # The rehearsal checks provenance too, as the real upload does, so the rehearsal is the
+        # real thing in everything but the version number.
+        uses: tanakapayam/actions/python/verify-published@d85ef0d8e58c34845b6d7efe29ff16f154d00a32 # v0.1.3
         with:
           dist: dist
           index: https://test.pypi.org
+          expect-provenance: "true"
           expect-py-typed: "true"
           smoke: python/scripts/smoke.py
           python: uv run --no-project python
@@ -202,7 +205,7 @@ jobs:
           name: dist
           path: dist/
       - name: Check these are exactly the distributions that were staged
-        uses: tanakapayam/actions/artifact/verify-fingerprint@dff6ee8d19d49f765c30c40b94457475add085a5 # v0.1.2
+        uses: tanakapayam/actions/artifact/verify-fingerprint@d85ef0d8e58c34845b6d7efe29ff16f154d00a32 # v0.1.3
         with:
           path: dist
           expected: ${{ needs.build.outputs.integrity }}
@@ -211,7 +214,7 @@ jobs:
       - name: Install the release back from PyPI and check it
         # The upload is done and cannot be undone, so a failure here means "look at the
         # release" (python/RELEASING.md says how), not "run it again".
-        uses: tanakapayam/actions/python/verify-published@dff6ee8d19d49f765c30c40b94457475add085a5 # v0.1.2
+        uses: tanakapayam/actions/python/verify-published@d85ef0d8e58c34845b6d7efe29ff16f154d00a32 # v0.1.3
         with:
           dist: dist
           expect-provenance: "true"

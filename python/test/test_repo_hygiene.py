@@ -421,9 +421,9 @@ def test_each_upload_follows_the_stage_rechecks_the_files_and_reads_the_release_
     assert "id-token: write" in block and "contents: read" in block
 
 
-def test_real_pypi_also_has_its_provenance_checked():
-    assert 'expect-provenance: "true"' in publish_jobs()["publish-pypi"]
-    assert "expect-provenance" not in publish_jobs()["publish-testpypi"]
+def test_both_uploads_have_their_provenance_checked_so_the_rehearsal_is_the_real_thing():
+    for job in ("publish-pypi", "publish-testpypi"):
+        assert 'expect-provenance: "true"' in publish_jobs()[job], job
 
 
 def test_every_smoke_script_the_workflows_name_exists():

@@ -81,7 +81,7 @@ jobs:
           fi
       - name: Check the release is ready
         if: github.event_name == 'release'
-        uses: tanakapayam/actions/release/guard@dff6ee8d19d49f765c30c40b94457475add085a5 # v0.1.2
+        uses: tanakapayam/actions/release/guard@d85ef0d8e58c34845b6d7efe29ff16f154d00a32 # v0.1.3
         with:
           tag-prefix: node-v
           version: ${{ steps.package.outputs.version }}

@@ -138,16 +138,16 @@ jobs:
         # The same fingerprint, contents and install checks the publish workflow's stage job
         # runs, so they are exercised on every change and not only on release day.
         id: rehearsal
-        uses: tanakapayam/actions/artifact/fingerprint@dff6ee8d19d49f765c30c40b94457475add085a5 # v0.1.2
+        uses: tanakapayam/actions/artifact/fingerprint@d85ef0d8e58c34845b6d7efe29ff16f154d00a32 # v0.1.3
         with:
           path: python/dist
       - name: Check they are still those distributions
-        uses: tanakapayam/actions/artifact/verify-fingerprint@dff6ee8d19d49f765c30c40b94457475add085a5 # v0.1.2
+        uses: tanakapayam/actions/artifact/verify-fingerprint@d85ef0d8e58c34845b6d7efe29ff16f154d00a32 # v0.1.3
         with:
           path: python/dist
           expected: ${{ steps.rehearsal.outputs.digest }}
       - name: Install them into clean environments and smoke-test
-        uses: tanakapayam/actions/python/verify-install@dff6ee8d19d49f765c30c40b94457475add085a5 # v0.1.2
+        uses: tanakapayam/actions/python/verify-install@d85ef0d8e58c34845b6d7efe29ff16f154d00a32 # v0.1.3
         with:
           dist: python/dist
           source-root: python
