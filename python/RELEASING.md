@@ -1,7 +1,6 @@
 # Releasing conclude (Python)
 
-Releases build once, check those exact files, and only then upload them, with a person in
-between (`.github/workflows/python-publish.yml`):
+Releases build once, check those exact files, and only then upload them, with a person in between (`.github/workflows/python-publish.yml`):
 
 ```
 release published (tag python-v<version>)
@@ -18,30 +17,16 @@ release published (tag python-v<version>)
           +-- one sdist + wheel, built once, uploaded as an artifact and promoted unchanged
 ```
 
-Why: a version on PyPI can never be replaced, and a wheel that leaves out a new module
-imports fine from a checkout and breaks for everyone else. The stage catches that first.
-Why one set of files: `artifact/fingerprint` fingerprints them at build time, and the stage
-and the upload each run `artifact/verify-fingerprint` on the artifact they downloaded, so what
-was checked is byte-for-byte what is uploaded.
+Why: a version on PyPI can never be replaced, and a wheel that leaves out a new module imports fine from a checkout and breaks for everyone else. The stage catches that first. Why one set of files: `artifact/fingerprint` fingerprints them at build time, and the stage and the upload each run `artifact/verify-fingerprint` on the artifact they downloaded, so what was checked is byte-for-byte what is uploaded.
 
-Unlike the Node package there is no staging *registry*: GitHub Packages has no PyPI
-registry, and TestPyPI never accepts a file name twice (not even after a delete), so it
-cannot stage the real version without burning it. The stage is therefore the checks
-themselves, and they live in [tanakapayam/actions](https://github.com/tanakapayam/actions)
-(`python/verify-install`, `python/verify-published`, `release/guard` and friends), shared with
-every other package released this way. conclude's own part is `python/scripts/smoke.py`, the
-smoke test the stage runs inside each fresh install.
+Unlike the Node package there is no staging *registry*: GitHub Packages has no PyPI registry, and TestPyPI never accepts a file name twice (not even after a delete), so it cannot stage the real version without burning it. The stage is therefore the checks themselves, and they live in [tanakapayam/actions](https://github.com/tanakapayam/actions) (`python/verify-install`, `python/verify-published`, `release/guard` and friends), shared with every other package released this way. conclude's own part is `python/scripts/smoke.py`, the smoke test the stage runs inside each fresh install.
 
 ## One-time setup
 
 1. **Environments** (repository Settings, Environments):
    - `testpypi`: no protection needed.
-   - `pypi`: add yourself (or a team) under *Required reviewers*; that is the approval
-     gate.
-2. **Trusted publisher**, on both <https://pypi.org> and <https://test.pypi.org>, for the
-   project `conclude`: this repository, workflow **`python-publish.yml`**, environment
-   `pypi` (`testpypi` on TestPyPI). For a project that does not exist yet, use
-   "Publishing" -> "Add a new pending publisher".
+   - `pypi`: add yourself (or a team) under *Required reviewers*; that is the approval gate.
+2. **Trusted publisher**, on both <https://pypi.org> and <https://test.pypi.org>, for the project `conclude`: this repository, workflow **`python-publish.yml`**, environment `pypi` (`testpypi` on TestPyPI). For a project that does not exist yet, use "Publishing" -> "Add a new pending publisher".
 3. Nothing to store: publishing uses OIDC. No PyPI token exists.
 
 > **If this workflow was ever registered under a different filename** (for example the
@@ -53,36 +38,28 @@ smoke test the stage runs inside each fresh install.
 
 ## Releasing
 
-1. Bump `__version__` in `src/conclude/__init__.py` (the single source of truth; see
-   `[tool.hatch.version]` in `pyproject.toml`), and the version in
-   `docs/python/comparison.md`'s "Verified" line if it's stale. Put a dated entry in
-   `CHANGELOG.md` (the release is refused while it says *Unreleased*).
+1. Bump `__version__` in `src/conclude/__init__.py` (the single source of truth; see `[tool.hatch.version]` in `pyproject.toml`), and the version in `docs/python/comparison.md`'s "Verified" line if it's stale. Put a dated entry in `CHANGELOG.md` (the release is refused while it says *Unreleased*).
 2. Merge to `main`.
 3. Create a GitHub Release from a new tag `python-v<version>` on `main`.
-4. The workflow builds and stages on every supported Python. When it is green,
-   `publish-pypi` waits for a reviewer to **approve the `pypi` deployment**; approve it
-   when you are happy.
-5. After the upload, the last steps install the release back from PyPI and compare its
-   hashes (and provenance) with what was built. If one of them is red, **do not re-run
-   it**: the upload is done and cannot be undone. Look at <https://pypi.org/project/conclude/>,
-   yank the release there if it is broken (Manage, Options, Yank), and publish a fixed
-   version. A red "listing" or "download" step right after an upload is usually the index
-   still catching up; the check retries for about five minutes before it gives up.
+4. The workflow builds and stages on every supported Python. When it is green, `publish-pypi` waits for a reviewer to **approve the `pypi` deployment**; approve it when you are happy.
+5. After the upload, the last steps install the release back from PyPI and compare its hashes (and provenance) with what was built. If one of them is red, **do not re-run it**: the upload is done and cannot be undone. Look at <https://pypi.org/project/conclude/>, yank the release there if it is broken (Manage, Options, Yank), and publish a fixed version. A line that says `not yet:` is the check waiting for the index, not a failure (a fresh upload appears on the index's pages one at a time); only `still not there after N attempts` is. Every message, and what to do about it, is in [What a failure looks like](https://github.com/tanakapayam/actions/blob/main/docs/failures.md).
+
+### What to expect on a real release
+
+The dry run and the TestPyPI rehearsal run the same pipeline, so a real release holds no surprises except the two things a rehearsal cannot do: the approval gate, and the upload to the real index. Before the first one:
+
+- The trusted publisher on PyPI names workflow `python-publish.yml` and environment `pypi`, and the `pypi` environment has required reviewers (see One-time setup). A release the workflow cannot authorize fails at the upload, with an `invalid-publisher` error.
+- The version, the `docs/python/comparison.md` line (a test checks it) and the dated `CHANGELOG.md` entry agree, and the tag is `python-v<version>`.
+
+Then watch the run's page: the build's summary shows the fingerprint and the files it counted; each stage job (one per Python) ends with a green list; `publish-pypi` waits for your approval; and after the upload its summary reads `Read back from https://pypi.org: conclude <version>` with four ticks: listing, download, install and provenance. That is a release that is on PyPI, is the file that was built, installs and runs, and is attested.
 
 ## Rehearsing
 
 - **Actions, Python Publish, Run workflow**:
   - `dry-run` (the default) builds and stages, and uploads nothing.
-  - `testpypi` also uploads to TestPyPI and reads it back (hashes, install, provenance), under
-    a throwaway version (`1.1.0` becomes `1.1.0.dev<run*100+attempt>`, below the real release
-    and different for every run and re-run). It never touches the `pypi` environment or a real
-    version. If the provenance check is the only red step, TestPyPI has not published the
-    attestations (it retries for about five minutes first): drop `expect-provenance` from that
-    one step and say so here.
+  - `testpypi` also uploads to TestPyPI and reads it back (hashes, install, provenance), under a throwaway version (`1.1.0` becomes `1.1.0.dev<run*100+attempt>`, below the real release and different for every run and re-run). It never touches the `pypi` environment or a real version. TestPyPI serves provenance, so the rehearsal is the real thing in everything but the version number.
   - `pypi` publishes for real from a manual run; prefer publishing a GitHub Release.
-- **Locally**, on the files `uv build` leaves in `dist/` (CI does exactly this on every
-  change, in the `build` job of `python-ci.yml`). The checks are plain Python scripts in a
-  clone of tanakapayam/actions:
+- **Locally**, on the files `uv build` leaves in `dist/` (CI does exactly this on every change, in the `build` job of `python-ci.yml`). The checks are plain Python scripts in a clone of tanakapayam/actions:
 
   ```
   git clone https://github.com/tanakapayam/actions ~/src/actions
@@ -93,11 +70,7 @@ smoke test the stage runs inside each fresh install.
       --expect-py-typed --smoke scripts/smoke.py
   ```
 
-  `verify-install` installs the wheel and the sdist into fresh virtual environments, checks
-  that both hold every file under `src/conclude/`, and runs the built-in smoke test and
-  `scripts/smoke.py` in each. To check a release that is already on an index, put its two
-  files in a directory and run `python ~/src/actions/lib/pyrelease.py verify-published <dir>
-  --expect-provenance --smoke scripts/smoke.py`.
+  `verify-install` installs the wheel and the sdist into fresh virtual environments, checks that both hold every file under `src/conclude/`, and runs the built-in smoke test and `scripts/smoke.py` in each. To check a release that is already on an index, put its two files in a directory and run `python ~/src/actions/lib/pyrelease.py verify-published <dir> --expect-provenance --smoke scripts/smoke.py`.
 
 ## Trying a rehearsal version
 
